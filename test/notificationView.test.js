@@ -15,6 +15,7 @@ import {
   toSpeechText,
   totalMs,
 } from '../src/main/notificationView.js';
+import { DEFAULT_NOTIFY_LINES } from '../src/main/characterLines.js';
 
 // ローカル時刻で組み立てる（テストがタイムゾーンに依存しないように、表示側と同じくローカル基準で比較する）
 const NOW = new Date(2026, 8, 20, 9, 0, 0).getTime(); // 2026-09-20 09:00 ローカル
@@ -205,11 +206,82 @@ describe('notificationView / F-13 読み上げ文', () => {
     expect(toPresentation(task(), { now: NOW }).label).toBe('TODO');
   });
 
-  it(`長い件名は ${SPEECH_MAX} 文字で丸める`, () => {
+  it(`長い件名は件名の側を切り詰めて ${SPEECH_MAX} 文字に収める（セリフの部分は残す。v5.16）`, () => {
     const t = toSpeechText(mail({ title: 'あ'.repeat(200) }));
     expect(t).toHaveLength(SPEECH_MAX);
+    expect(t.startsWith('田中さんから重要なメールです。あ')).toBe(true);
+    // 件名が文の途中にあるセリフでも、後ろのセリフは切らない
+    const lines = { tasks: ['{title}、期限だよ！'] };
+    const u = toSpeechText(task({ title: 'い'.repeat(200) }), { lines });
+    expect(u).toHaveLength(SPEECH_MAX);
+    expect(u.endsWith('、期限だよ！')).toBe(true);
   });
 
+  it('時刻の無い予定（startAt なし）は今と同じ「予定のお知らせです。件名」', () => {
+    expect(toSpeechText(cal({ data: {} }))).toBe('予定のお知らせです。定例ミーティング');
+  });
+});
+
+describe('notificationView / F-22 キャラクターのセリフ', () => {
+  it('セリフを渡さなければ今の固定文と同じ（既定のセリフを明示しても同じ）', () => {
+    const cases = [cal(), cal({ data: { allDay: true } }), cal({ data: {} }), task({ title: '週次TODO' }), mail(), mail({ body: '' })];
+    const before = [
+      '予定のお知らせです。9時10分から、定例ミーティング',
+      '今日の予定です。定例ミーティング',
+      '予定のお知らせです。定例ミーティング',
+      'トゥードゥーの期限です。週次トゥードゥー',
+      '田中さんから重要なメールです。見積のご確認',
+      '重要なメールです。見積のご確認',
+    ];
+    expect(cases.map((n) => toSpeechText(n))).toEqual(before);
+    expect(cases.map((n) => toSpeechText(n, { lines: DEFAULT_NOTIFY_LINES }))).toEqual(before);
+    expect(cases.map((n) => toPresentation(n, { now: NOW }).speech)).toEqual(before);
+  });
+
+  it('キャラクターのセリフで読み上げる（予定・終日・TODO・メール）。吹き出しは変わらない', () => {
+    const lines = {
+      calendar: ['{time}から{title}があるよ'],
+      calendarAllDay: ['今日は{title}の日だね'],
+      tasks: ['{title}、そろそろやろう'],
+      gmail: ['{from}さんからだよ。{title}'],
+    };
+    expect(toSpeechText(cal(), { lines })).toBe('9時10分から定例ミーティングがあるよ');
+    expect(toSpeechText(cal({ data: { allDay: true } }), { lines })).toBe('今日は定例ミーティングの日だね');
+    expect(toSpeechText(task(), { lines })).toBe('書類を出す、そろそろやろう');
+    expect(toSpeechText(mail(), { lines })).toBe('田中さんからだよ。見積のご確認');
+    const p = toPresentation(mail(), { now: NOW, lines });
+    expect(p).toMatchObject({ label: '重要メール', title: '見積のご確認', speech: '田中さんからだよ。見積のご確認' });
+  });
+
+  it('値が空になる差し込みを含む文は避け、使える文が無ければ既定の文', () => {
+    const lines = { gmail: ['{from}さんからだよ。{title}', 'メールだよ。{title}'], calendar: ['{time}から{title}'] };
+    expect(toSpeechText(mail({ body: '' }), { lines })).toBe('メールだよ。見積のご確認');
+    expect(toSpeechText(mail({ body: '' }), { lines: { gmail: ['{from}さんからだよ。{title}'] } })).toBe('重要なメールです。見積のご確認');
+    expect(toSpeechText(cal({ data: {} }), { lines })).toBe('予定のお知らせです。定例ミーティング');
+  });
+
+  it('{title} の無いセリフは件名を読まない（吹き出しには件名が出る）', () => {
+    const lines = { tasks: ['やることがあるよ！'], gmail: ['{from}さんからメールだよ'] };
+    expect(toSpeechText(task(), { lines })).toBe('やることがあるよ！');
+    expect(toSpeechText(mail(), { lines })).toBe('田中さんからメールだよ');
+    expect(toPresentation(task(), { now: NOW, lines })).toMatchObject({ title: '書類を出す', speech: 'やることがあるよ！' });
+  });
+
+  it('文の選び方（pickLine）を渡すと、それで選ぶ（使えるかの判定も渡す）', () => {
+    const calls = [];
+    const pickLine = (kind, accept) => {
+      calls.push([kind, accept('{from}さん{title}'), accept('{title}')]);
+      return 'えらんだ{title}';
+    };
+    expect(toSpeechText(mail({ body: '' }), { pickLine })).toBe('えらんだ見積のご確認');
+    expect(calls).toEqual([['gmail', false, true]]);
+    // 選べなかった（null）ときは既定の文
+    expect(toSpeechText(cal({ data: { allDay: true } }), { pickLine: () => null })).toBe('今日の予定です。定例ミーティング');
+  });
+
+});
+
+describe('notificationView / 読み上げの presentation', () => {
   it('presentation に speech と読み上げ用のタイミングが載る', () => {
     const p = toPresentation(mail(), { now: NOW, backlog: 2 });
     expect(p.speech).toBe('田中さんから重要なメールです。見積のご確認');

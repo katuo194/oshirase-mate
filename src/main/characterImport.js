@@ -9,8 +9,10 @@
 // 編集（v5.9）：フォルダを変えない編集は manifest.json の置き換えだけ。フォルダを差し替える編集は .importing-<id>/ で組み直し、
 // 旧フォルダを .removing-<id>/ へ退避してから入れ替える（途中で失敗しても元のキャラクターは残る）。
 // 既定キャラクターの声とキャラクター設定は <rootDir>/default-profile.json（6.2）。
+// セリフ（lines。F-22・Phase 13）は manifest.json・default-profile.json に持つ。無い古いファイルも読め、壊れた行だけを捨てる。
 
 import path from 'node:path';
+import { describeLinesError, emptyLines, isLinesError, parseLines, validateLines } from './characterLines.js';
 import { parseDefaultProfile, parsePersona, parseVoice, validatePersona, validateVoice } from './characterProfile.js';
 
 export const MANIFEST_VERSION = 1;
@@ -183,8 +185,19 @@ export function validateSlotSelection(slots) {
  * @param {Record<string, { frameCount: number, fps: number }>} opts.slots
  * @param {{ speakerId: number, speedScale: number, pitchScale: number } | null} [opts.voice]
  * @param {string} [opts.persona]
+ * @param {ReturnType<typeof emptyLines>} [opts.lines] セリフ（validateLines 済み。既定は空＝今の固定文）
  */
-export function buildManifest({ id, displayName, canvasSize = CANVAS_SIZE, importedAt, updatedAt = importedAt, slots, voice = null, persona = '' }) {
+export function buildManifest({
+  id,
+  displayName,
+  canvasSize = CANVAS_SIZE,
+  importedAt,
+  updatedAt = importedAt,
+  slots,
+  voice = null,
+  persona = '',
+  lines = emptyLines(),
+}) {
   const out = {};
   for (const s of SLOT_NAMES) {
     const v = slots[s];
@@ -200,6 +213,7 @@ export function buildManifest({ id, displayName, canvasSize = CANVAS_SIZE, impor
     updatedAt,
     voice,
     persona,
+    lines,
     slots: out,
   };
 }
@@ -248,6 +262,8 @@ export function parseManifest(raw, expectedId) {
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : typeof raw.importedAt === 'string' ? raw.importedAt : '',
     voice: parseVoice(raw.voice),
     persona: parsePersona(raw.persona),
+    // セリフ（Phase 13）。無い古い manifest も読め、壊れた行だけを捨てる（キャラクター自体は一覧から外さない）
+    lines: parseLines(raw.lines),
     slots,
   };
 }
@@ -316,6 +332,7 @@ const ERROR_MESSAGES = {
  * @param {{ code: string, file?: string, detail?: string, slot?: string }} error
  */
 export function describeImportError(error) {
+  if (isLinesError(error)) return describeLinesError(error);
   const base = ERROR_MESSAGES[error?.code] ?? '取り込みに失敗しました';
   const extras = [];
   if (error?.slot) extras.push(error.slot);
@@ -423,13 +440,15 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
     return inspected.frameCount;
   }
 
-  /** 声・キャラクター設定の入力を検証する */
-  function validateProfile({ voice, persona }) {
+  /** 声・キャラクター設定・セリフの入力を検証する */
+  function validateProfile({ voice, persona, lines }) {
     const v = validateVoice(voice);
     if (!v.ok) return v;
     const p = validatePersona(persona);
     if (!p.ok) return p;
-    return { ok: true, voice: v.value, persona: p.value };
+    const l = validateLines(lines);
+    if (!l.ok) return l;
+    return { ok: true, voice: v.value, persona: p.value, lines: l.value };
   }
 
   async function readManifest(id) {
@@ -451,12 +470,13 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
      * @param {Record<string, { dir: string, fps?: number }>} req.slots 割り当てたスロットだけ
      * @param {object | null} [req.voice] 声（未設定は null）
      * @param {string} [req.persona] キャラクター設定
+     * @param {object | null} [req.lines] セリフ（characterLines.validateLines の入力。未設定は null）
      * @returns {Promise<{ ok: true, manifest: object } | { ok: false, error: object }>}
      */
-    async importCharacter({ displayName, slots, voice = null, persona = '' }) {
+    async importCharacter({ displayName, slots, voice = null, persona = '', lines = null }) {
       const name = validateDisplayName(displayName);
       if (!name.ok) return name;
-      const profile = validateProfile({ voice, persona });
+      const profile = validateProfile({ voice, persona, lines });
       if (!profile.ok) return profile;
       const slotNames = Object.keys(slots ?? {});
       const selection = validateSlotSelection(slotNames);
@@ -486,6 +506,7 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
           slots: manifestSlots,
           voice: profile.voice,
           persona: profile.persona,
+          lines: profile.lines,
         });
         await fs.writeFile(path.join(tmp, MANIFEST_FILE), JSON.stringify(manifest, null, 2));
         await fs.rename(tmp, path.join(rootDir, id));
@@ -510,14 +531,15 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
      * @param {Record<string, { keep: true, fps?: number } | { dir: string, fps?: number } | null>} req.slots
      * @param {object | null} [req.voice]
      * @param {string} [req.persona]
+     * @param {object | null} [req.lines] セリフ（未設定は null）
      * @returns {Promise<{ ok: true, manifest: object } | { ok: false, error: object }>}
      */
-    async updateCharacter(id, { displayName, slots, voice = null, persona = '' }) {
+    async updateCharacter(id, { displayName, slots, voice = null, persona = '', lines = null }) {
       const current = isValidCharacterId(id) ? await readManifest(id) : null;
       if (!current) return { ok: false, error: { code: 'not_found' } };
       const name = validateDisplayName(displayName);
       if (!name.ok) return name;
-      const profile = validateProfile({ voice, persona });
+      const profile = validateProfile({ voice, persona, lines });
       if (!profile.ok) return profile;
 
       /** スロット → { mode: 'keep' | 'replace', dir?, fps } */
@@ -551,6 +573,7 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
         updatedAt: now().toISOString(),
         voice: profile.voice,
         persona: profile.persona,
+        lines: profile.lines,
       };
 
       // フォルダを差し替えない：manifest の置き換えだけ（解除したスロットの画像は置き換えの後で消す）
@@ -611,7 +634,7 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
       }
     },
 
-    /** 既定キャラクターの声とキャラクター設定（default-profile.json）。無い・壊れていれば未設定 */
+    /** 既定キャラクターの声・キャラクター設定・セリフ（default-profile.json）。無い・壊れていれば未設定 */
     async getDefaultProfile() {
       try {
         return parseDefaultProfile(JSON.parse(await fs.readFile(path.join(rootDir, DEFAULT_PROFILE_FILE), 'utf8')));
@@ -621,13 +644,13 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
     },
 
     /**
-     * 既定キャラクターの声とキャラクター設定を保存する（画像・名前は変えられない）。
-     * @returns {Promise<{ ok: true, profile: { voice: object | null, persona: string } } | { ok: false, error: object }>}
+     * 既定キャラクターの声・キャラクター設定・セリフを保存する（画像・名前は変えられない）。
+     * @returns {Promise<{ ok: true, profile: { voice: object | null, persona: string, lines: object } } | { ok: false, error: object }>}
      */
-    async saveDefaultProfile({ voice = null, persona = '' }) {
-      const profile = validateProfile({ voice, persona });
+    async saveDefaultProfile({ voice = null, persona = '', lines = null }) {
+      const profile = validateProfile({ voice, persona, lines });
       if (!profile.ok) return profile;
-      const value = { voice: profile.voice, persona: profile.persona };
+      const value = { voice: profile.voice, persona: profile.persona, lines: profile.lines };
       try {
         await writeJsonAtomic(path.join(rootDir, DEFAULT_PROFILE_FILE), value);
       } catch (e) {

@@ -33,8 +33,20 @@ export const WATCHDOG_MARGIN_MS = 3000;
  * @param {() => number} [opts.now]
  * @param {{ setTimeout?: Function, clearTimeout?: Function }} [opts.timers] テストでは fake timers が入る
  * @param {{ info: Function, warn: Function }} [opts.log]
+ * @param {() => { lines?: object, pickLine?: Function }} [opts.getSpeechOptions]
+ *   読み上げのセリフ（F-22）。表示を作るたび（通常の表示・F-21 の再表示）に呼び、選択中のキャラクターのセリフと文の選び方を
+ *   notificationView.toPresentation に渡す。無ければ今の固定文
  */
-export function createNotificationPresenter({ notifyQueue, show, finish = () => {}, abort = () => {}, now = Date.now, timers = {}, log = console }) {
+export function createNotificationPresenter({
+  notifyQueue,
+  show,
+  finish = () => {},
+  abort = () => {},
+  now = Date.now,
+  timers = {},
+  log = console,
+  getSpeechOptions = () => ({}),
+}) {
   const setTimer = timers.setTimeout ?? ((...a) => globalThis.setTimeout(...a));
   const clearTimer = timers.clearTimeout ?? ((...a) => globalThis.clearTimeout(...a));
 
@@ -70,12 +82,23 @@ export function createNotificationPresenter({ notifyQueue, show, finish = () => 
     }, delayMs);
   }
 
+  /** 通知 → 表示の内容。読み上げは選択中のキャラクターのセリフで作る（F-22） */
+  function present(notification, { backlog = 0 } = {}) {
+    let speech = {};
+    try {
+      speech = getSpeechOptions() ?? {};
+    } catch (e) {
+      log.warn(`[present] セリフを取得できないため既定の文で読み上げます: ${e?.message ?? e}`);
+    }
+    return toPresentation(notification, { now: now(), backlog, lines: speech.lines, pickLine: speech.pickLine });
+  }
+
   /** 次に表示するもの。システム通知を優先し、次にキュー（ドラッグ中は notifyQueue 自体が止まっている）。 */
   function next() {
     if (systemQueue.length > 0) return { presentation: systemQueue.shift(), notification: null };
     const notification = notifyQueue.take();
     if (notification === null) return null;
-    return { presentation: toPresentation(notification, { now: now(), backlog: notifyQueue.size() }), notification };
+    return { presentation: present(notification, { backlog: notifyQueue.size() }), notification };
   }
 
   /** 表示を始める。例外は握りつぶし（この1件は諦める）、始められたかを返す。 */
@@ -194,7 +217,7 @@ export function createNotificationPresenter({ notifyQueue, show, finish = () => 
       if (systemQueue.length > 0 || notifyQueue.size() > 0) return 'busy';
       if (lastNotification === null) return 'none';
       // id は元の通知と別にする（遅れて届いた元の done・読み上げと取り違えない）
-      systemQueue.push({ ...toPresentation(lastNotification, { now: now() }), id: `replay:${lastNotification.id}:${++replaySeq}` });
+      systemQueue.push({ ...present(lastNotification), id: `replay:${lastNotification.id}:${++replaySeq}` });
       preemptIdle();
       pump();
       return 'shown';

@@ -20,6 +20,7 @@ import {
   validateFps,
   validateSlotSelection,
 } from '../src/main/characterImport.js';
+import { emptyLines } from '../src/main/characterLines.js';
 
 /** シグネチャ＋IHDR だけの最小 PNG（寸法・色形式の検査用。画像としてはデコードしない） */
 function fakePng({ width = 400, height = 400, bitDepth = 8, colorType = 6 } = {}) {
@@ -171,6 +172,7 @@ describe('manifest.json', () => {
       updatedAt: '2026-09-21T07:30:00.000Z',
       voice: null,
       persona: '',
+      lines: emptyLines(),
       slots: {
         rest: { folder: 'rest', frameCount: 59, fps: 30 },
         notify: { folder: 'notify', frameCount: 69, fps: 30 },
@@ -453,6 +455,36 @@ describe('manifest.json（声・キャラクター設定。v5.9）', () => {
   });
 });
 
+describe('manifest.json（セリフ。Phase 13・F-22）', () => {
+  const base = { id: 'emotelab-3f9a1c2e', displayName: 'A', importedAt: '2026-09-21T07:30:00.000Z', slots: { rest: { frameCount: 1, fps: 30 }, notify: { frameCount: 1, fps: 30 } } };
+
+  it('lines を保存し、読み戻せる（version は 1 のまま）', () => {
+    const lines = emptyLines();
+    lines.notify.gmail = ['{from}さんからだよ。{title}'];
+    lines.idle.normal = ['ひまだなあ'];
+    const m = buildManifest({ ...base, lines });
+    expect(m.version).toBe(1);
+    expect(parseManifest(m, 'emotelab-3f9a1c2e').lines).toEqual(lines);
+  });
+
+  it('lines が無い古い manifest も読め、壊れた行だけを捨てる（キャラクターは一覧から外さない）', () => {
+    const old = buildManifest(base);
+    delete old.lines;
+    expect(parseManifest(old)).toMatchObject({ id: 'emotelab-3f9a1c2e', lines: emptyLines() });
+    const broken = { ...buildManifest(base), lines: { notify: { tasks: ['{title}だよ', '件名なし', '{who}だよ', 7] }, idle: 'x' } };
+    const parsed = parseManifest(broken);
+    expect(parsed).not.toBeNull();
+    expect(parsed.lines.notify.tasks).toEqual(['{title}だよ', '件名なし']);
+    expect(parsed.lines.idle.normal).toEqual([]);
+  });
+
+  it('セリフのエラーは種類と行を含む文にする', () => {
+    expect(describeImportError({ code: 'lines_unknown_placeholder', placeholder: 'from', group: 'notify', kind: 'tasks', line: 2 })).toBe(
+      'セリフ「TODO」の 2 行目：{from} は使えない差し込みです（使えるのは {title}）',
+    );
+  });
+});
+
 describe('createCharacterRepository / 編集（v5.9）', () => {
   let t;
   const clock = () => new Date(Date.UTC(2026, 8, 21, 0, 0, t++));
@@ -486,6 +518,39 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
     const slots = { rest: { dir: rest }, notify: { dir: rest } };
     expect(await repo.importCharacter({ displayName: 'A', slots, voice: { speakerId: 3, speedScale: 3 } })).toMatchObject({ ok: false, error: { code: 'invalid_voice' } });
     expect(await repo.importCharacter({ displayName: 'A', slots, persona: 'あ'.repeat(1001) })).toMatchObject({ ok: false, error: { code: 'invalid_persona' } });
+  });
+
+  it('取り込み時にセリフを保存できる（textarea の文字列を1行1文に。空行・前後の空白は除く）', async () => {
+    const repo = createRepo({ now: clock });
+    const m = await imported(repo, { lines: { notify: { tasks: '  {title}をやろう \n\n{title}、期限だよ' }, idle: { morning: 'おはよ' } } });
+    expect(m.lines.notify.tasks).toEqual(['{title}をやろう', '{title}、期限だよ']);
+    expect(m.lines.idle.morning).toEqual(['おはよ']);
+    expect(m.lines.notify.gmail).toEqual([]);
+    expect(await repo.get(m.id)).toEqual(m);
+  });
+
+  it('不正なセリフは取り込まない（何も作らない）', async () => {
+    const repo = createRepo();
+    const rest = await makeFolder('rest', 1);
+    const slots = { rest: { dir: rest }, notify: { dir: rest } };
+    const r = await repo.importCharacter({ displayName: 'A', slots, lines: { notify: { gmail: '{title}\n{from}と{time}' } } });
+    expect(r).toEqual({ ok: false, error: { code: 'lines_unknown_placeholder', placeholder: 'time', group: 'notify', kind: 'gmail', line: 2 } });
+    expect(await repo.list()).toEqual([]);
+  });
+
+  it('編集でセリフを変えられ、不正なら何も変えない', async () => {
+    const repo = createRepo({ now: clock });
+    const m = await imported(repo, { lines: { idle: { normal: 'ひま' } } });
+    const keep = { rest: { keep: true }, notify: { keep: true }, 'notify.gmail': { keep: true } };
+    const r = await repo.updateCharacter(m.id, { displayName: 'A', slots: keep, lines: { notify: { calendar: '{time}から{title}' } } });
+    expect(r.ok).toBe(true);
+    expect(r.manifest.lines.notify.calendar).toEqual(['{time}から{title}']);
+    expect(r.manifest.lines.idle.normal).toEqual([]); // 送ったものに置き換わる
+    expect(await repo.get(m.id)).toEqual(r.manifest);
+
+    const bad = await repo.updateCharacter(m.id, { displayName: 'B', slots: keep, lines: { idle: { normal: '{title}' } } });
+    expect(bad).toMatchObject({ ok: false, error: { code: 'lines_unknown_placeholder', group: 'idle', kind: 'normal', line: 1 } });
+    expect(await repo.get(m.id)).toEqual(r.manifest);
   });
 
   it('名前・fps・声・設定だけの編集は manifest の置き換えだけ（画像はそのまま）', async () => {
@@ -605,9 +670,9 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
 describe('createCharacterRepository / 既定キャラクターの声と設定（default-profile.json）', () => {
   it('未保存なら未設定。保存すると読み戻せ、一覧には出ない', async () => {
     const repo = createRepo();
-    expect(await repo.getDefaultProfile()).toEqual({ voice: null, persona: '' });
+    expect(await repo.getDefaultProfile()).toEqual({ voice: null, persona: '', lines: emptyLines() });
     const r = await repo.saveDefaultProfile({ voice: { speakerId: 2, speedScale: 1, pitchScale: 0 }, persona: '丸い' });
-    expect(r).toEqual({ ok: true, profile: { voice: { speakerId: 2, speedScale: 1, pitchScale: 0 }, persona: '丸い' } });
+    expect(r).toEqual({ ok: true, profile: { voice: { speakerId: 2, speedScale: 1, pitchScale: 0 }, persona: '丸い', lines: emptyLines() } });
     expect(await repo.getDefaultProfile()).toEqual(r.profile);
     expect(JSON.parse(await fs.readFile(path.join(rootDir, 'default-profile.json'), 'utf8'))).toEqual(r.profile);
     expect(await repo.list()).toEqual([]);
@@ -618,6 +683,25 @@ describe('createCharacterRepository / 既定キャラクターの声と設定（
     expect(await repo.saveDefaultProfile({ voice: { speakerId: 'x' } })).toMatchObject({ ok: false, error: { code: 'invalid_voice' } });
     await fs.mkdir(rootDir, { recursive: true });
     await fs.writeFile(path.join(rootDir, 'default-profile.json'), '{broken');
-    expect(await repo.getDefaultProfile()).toEqual({ voice: null, persona: '' });
+    expect(await repo.getDefaultProfile()).toEqual({ voice: null, persona: '', lines: emptyLines() });
+  });
+
+  it('黄色い丸のセリフを保存・読み戻せる。lines の無い古いファイルは空、不正なセリフは保存しない', async () => {
+    const repo = createRepo();
+    await fs.mkdir(rootDir, { recursive: true });
+    await fs.writeFile(path.join(rootDir, 'default-profile.json'), JSON.stringify({ voice: null, persona: '丸い' }));
+    expect(await repo.getDefaultProfile()).toEqual({ voice: null, persona: '丸い', lines: emptyLines() });
+
+    const r = await repo.saveDefaultProfile({ persona: '丸い', lines: { notify: { calendarAllDay: '今日は{title}！' }, idle: { bedtime: 'おやすみ' } } });
+    expect(r.ok).toBe(true);
+    expect(r.profile.lines.notify.calendarAllDay).toEqual(['今日は{title}！']);
+    expect(r.profile.lines.idle.bedtime).toEqual(['おやすみ']);
+    expect(await repo.getDefaultProfile()).toEqual(r.profile);
+
+    expect(await repo.saveDefaultProfile({ lines: { notify: { tasks: '{date}{title}' } } })).toMatchObject({
+      ok: false,
+      error: { code: 'lines_unknown_placeholder', placeholder: 'date' },
+    });
+    expect(await repo.getDefaultProfile()).toEqual(r.profile);
   });
 });

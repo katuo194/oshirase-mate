@@ -1,5 +1,5 @@
 // キャラクター作成／編集画面（F-17・3.6・v5.9）。フォルダはメインがOSのダイアログで選び、検証結果（枚数・エラー理由）だけが返ってくる。
-// ?edit=<id> で開くと編集モード（取り込んだキャラクターは全項目、既定キャラクター〔id=default〕は声とキャラクター設定のみ）。
+// ?edit=<id> で開くと編集モード（取り込んだキャラクターは全項目、既定キャラクター〔id=default〕は声・キャラクター設定・セリフのみ）。
 const SLOTS = [
   { slot: 'rest', label: '待機（rest）', required: true },
   { slot: 'notify', label: '通知（notify）', required: true },
@@ -55,7 +55,7 @@ const isBuiltinEdit = () => mode === 'edit' && editing?.builtin === true;
 const personaLength = () => [...personaEl.value.trim()].length;
 
 function updateSubmit() {
-  let ok = !busy && personaLength() <= PERSONA_MAX;
+  let ok = !busy && personaLength() <= PERSONA_MAX && linesWithinCount();
   if (!isBuiltinEdit()) {
     ok &&= nameEl.value.trim() !== '';
     ok &&= SLOTS.filter((s) => s.required).every((s) => rows[s.slot].state !== 'none');
@@ -238,6 +238,95 @@ function syncPersonaCount() {
 }
 personaEl.addEventListener('input', syncPersonaCount);
 
+// ---- セリフ（F-22）。欄はメインの案内（linesGuide：種類ごとの既定の文・使える差し込み・上限）から作る ----
+
+/** 差し込みの説明（どれも任意。{title} を入れない文は件名を読まない） */
+const PLACEHOLDER_HELP = {
+  title: '{title}＝件名（入れないと件名は読みません）',
+  time: '{time}＝開始時刻（例「10時30分」）',
+  from: '{from}＝差出人',
+};
+
+/** 'notify.calendar' など → { def, textarea, count } */
+const lineFields = {};
+const lineFieldKey = (def) => `${def.group}.${def.kind}`;
+/** 書いた文の数（空行は数えない。検証はメインが行う） */
+const lineCount = (textarea) => textarea.value.split(/\r?\n/).filter((s) => s.trim() !== '').length;
+const linesWithinCount = () => Object.values(lineFields).every((f) => lineCount(f.textarea) <= f.def.countMax);
+
+function syncLineCount(field) {
+  const n = lineCount(field.textarea);
+  field.count.textContent = n === 0 ? `標準の文／${field.def.countMax}文まで` : `${n}/${field.def.countMax}文`;
+  field.count.classList.toggle('error', n > field.def.countMax);
+}
+
+function buildLineFields(guide) {
+  for (const def of guide) {
+    const id = `lines-${def.group}-${def.kind}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'line-field';
+
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = def.label;
+
+    const textarea = document.createElement('textarea');
+    textarea.id = id;
+    textarea.rows = def.group === 'idle' && def.kind === 'normal' ? 6 : 3;
+    // 空欄のときは標準の文を薄く表示する（何も書かなければそれを使う）
+    textarea.placeholder = def.defaults.join('\n');
+
+    const foot = document.createElement('div');
+    foot.className = 'line-foot';
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent =
+      def.group === 'notify'
+        ? `${def.placeholders.map((p) => PLACEHOLDER_HELP[p] ?? `{${p}}`).join('、')}。差し込みを除いて1文${def.lineMax}文字まで。`
+        : `1文${def.lineMax}文字まで。差し込みは使えません。`;
+    const count = document.createElement('span');
+    count.className = 'count';
+    foot.append(hint, count);
+
+    wrap.append(label, textarea, foot);
+    $(def.group === 'notify' ? 'lines-notify' : 'lines-idle').append(wrap);
+
+    const field = { def, textarea, count };
+    lineFields[lineFieldKey(def)] = field;
+    textarea.addEventListener('input', () => {
+      textarea.classList.remove('error');
+      syncLineCount(field);
+      updateSubmit();
+    });
+  }
+}
+
+/** 保存済みのセリフ（{ notify: { [kind]: string[] }, idle: … }）を欄に入れる。null なら空にする */
+function setLines(lines) {
+  for (const field of Object.values(lineFields)) {
+    const saved = lines?.[field.def.group]?.[field.def.kind];
+    field.textarea.value = Array.isArray(saved) ? saved.join('\n') : '';
+    field.textarea.classList.remove('error');
+    syncLineCount(field);
+  }
+}
+
+/** 送るセリフ。各欄の文字列のまま送り、行の分割・検証はメインが行う（エラーに何行目かを入れるため） */
+function linesValue() {
+  const out = { notify: {}, idle: {} };
+  for (const field of Object.values(lineFields)) out[field.def.group][field.def.kind] = field.textarea.value;
+  return out;
+}
+
+/** セリフのエラーの欄を開いて示す */
+function showLineError(fieldKey) {
+  const field = lineFields[fieldKey];
+  if (!field) return;
+  $('lines-section').open = true;
+  field.textarea.classList.add('error');
+  field.textarea.focus();
+}
+
 // ---- 送信（作成＝取り込み／編集＝保存） ----
 
 function request() {
@@ -248,7 +337,7 @@ function request() {
     slots[def.slot] = row.state;
     if (row.state !== 'none') fps[def.slot] = fpsValue(def.slot);
   }
-  return { displayName: nameEl.value, slots, fps, voice: voiceValue(), persona: personaEl.value };
+  return { displayName: nameEl.value, slots, fps, voice: voiceValue(), persona: personaEl.value, lines: linesValue() };
 }
 
 submitEl.addEventListener('click', async () => {
@@ -262,19 +351,23 @@ submitEl.addEventListener('click', async () => {
         nameEl.value = '';
         personaEl.value = '';
         resetRows();
+        setLines(null);
         await loadSpeakers(null);
         syncPersonaCount();
         setStatus(submitStatusEl, `「${r.displayName}」を取り込みました。キャラクター選択画面から選べます。`, 'ok');
       } else {
         setStatus(submitStatusEl, r.message, 'error');
+        if (r.field) showLineError(r.field);
       }
     } else {
       const r = await window.characterCreateApi.save(editing.id, request());
       if (r.ok) {
         if (!editing.builtin) resetRows(r.slots);
+        setLines(r.lines); // 前後の空白・空行を除いた、保存した形に揃える
         setStatus(submitStatusEl, `「${r.displayName}」を保存しました。`, 'ok');
       } else {
         setStatus(submitStatusEl, r.message, 'error');
+        if (r.field) showLineError(r.field);
       }
     }
   } catch (e) {
@@ -344,6 +437,8 @@ async function start() {
   }
 
   mode = r.mode;
+  buildLineFields(r.linesGuide ?? []);
+  setLines(mode === 'edit' ? r.character.lines : null);
   if (mode === 'edit') {
     editing = r.character;
     const title = editing.builtin ? `${editing.displayName} の編集` : 'キャラクター編集';
@@ -353,12 +448,12 @@ async function start() {
     submitEl.textContent = '保存';
     personaEl.value = editing.persona ?? '';
     if (editing.builtin) {
-      // 既定キャラクター：画像と名前は変えられない（声とキャラクター設定だけ）
-      $('intro').textContent = '組み込みのキャラクターです。声とキャラクター設定だけを変更できます。';
+      // 既定キャラクター：画像と名前は変えられない（声・キャラクター設定・セリフだけ）
+      $('intro').textContent = '組み込みのキャラクターです。声・キャラクター設定・セリフだけを変更できます。';
       $('name-section').hidden = true;
       $('slots-section').hidden = true;
     } else {
-      $('intro').textContent = '名前・モーション・声・キャラクター設定を変更できます。モーションのフォルダを選び直すと、保存時に画像を差し替えます。';
+      $('intro').textContent = '名前・モーション・声・キャラクター設定・セリフを変更できます。モーションのフォルダを選び直すと、保存時に画像を差し替えます。';
       nameEl.value = editing.displayName;
       resetRows(editing.slots);
     }

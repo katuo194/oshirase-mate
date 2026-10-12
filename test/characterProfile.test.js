@@ -10,6 +10,7 @@ import {
   validateVoice,
 } from '../src/main/characterProfile.js';
 import { SYSTEM_PROMPT, buildSystemPrompt } from '../src/main/chatPersona.js';
+import { emptyLines } from '../src/main/characterLines.js';
 import { createChatSession } from '../src/main/gemini.js';
 import { VoicevoxError, createVoicevox } from '../src/main/voicevox.js';
 
@@ -74,11 +75,15 @@ describe('characterProfile / キャラクター設定（persona）', () => {
   });
 
   it('既定キャラクターの default-profile.json', () => {
-    expect(parseDefaultProfile(null)).toEqual({ voice: null, persona: '' });
+    expect(parseDefaultProfile(null)).toEqual({ voice: null, persona: '', lines: emptyLines() });
     expect(parseDefaultProfile({ voice: { speakerId: 1 }, persona: '丸い', extra: 1 })).toEqual({
       voice: { speakerId: 1, speedScale: 1, pitchScale: 0 },
       persona: '丸い',
+      lines: emptyLines(),
     });
+    // セリフ（Phase 13）：壊れた行だけを捨てる
+    const lines = parseDefaultProfile({ lines: { notify: { tasks: ['やることだよ。{title}', 42, '{nope}{title}'] } } }).lines;
+    expect(lines.notify.tasks).toEqual(['やることだよ。{title}']);
   });
 });
 

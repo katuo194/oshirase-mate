@@ -6,9 +6,10 @@ contextBridge.exposeInMainWorld('characterCreateApi', {
   begin: (editId) => ipcRenderer.invoke('characterCreate:begin', editId ? String(editId) : ''),
   pickFolder: (slot) => ipcRenderer.invoke('characterCreate:pick-folder', String(slot)),
   clearSlot: (slot) => ipcRenderer.invoke('characterCreate:clear-slot', String(slot)),
-  // { displayName, fps: { [slot]: number }, voice, persona }。フォルダは pickFolder で選んだもの
+  // { displayName, fps: { [slot]: number }, voice, persona, lines }。フォルダは pickFolder で選んだもの
+  // lines（セリフ。F-22）は { notify: { [kind]: string }, idle: { [kind]: string } }（各欄の文字列。分割・検証はメイン）
   importCharacter: (req) => ipcRenderer.invoke('characterCreate:import', req),
-  // 編集の保存。{ displayName, slots: { [slot]: 'keep' | 'picked' | 'none' }, fps, voice, persona }
+  // 編集の保存。{ displayName, slots: { [slot]: 'keep' | 'picked' | 'none' }, fps, voice, persona, lines }
   save: (id, req) => ipcRenderer.invoke('characterCreate:save', String(id), req),
   // VOICEVOX の話者一覧（声の選択用）。{ available, speakers: [{ name, styles: [{ id, name }] }] }
   listSpeakers: () => ipcRenderer.invoke('characterCreate:list-speakers'),

@@ -3,6 +3,9 @@
 // voice   … { speakerId, speedScale, pitchScale }。未設定（null）なら config.json の voicevox を使う（6.1）。
 //           選択中のキャラクターの声を、通知・アイドルトーク・チャットのすべての読み上げに使う（F-13）
 // persona … 自由記述（最大1000文字）。chatPersona.buildSystemPrompt でシステムプロンプトに組み込む（3.5）
+// lines   … 通知の読み上げとアイドルトークのセリフ（F-22・Phase 13）。検証・展開は characterLines.js
+
+import { parseLines } from './characterLines.js';
 
 export const SPEED_MIN = 0.5;
 export const SPEED_MAX = 2.0;
@@ -57,12 +60,13 @@ export function parsePersona(raw) {
 }
 
 /**
- * 既定キャラクターの default-profile.json（{ voice, persona }）を読む。無い・壊れていれば未設定。
- * @returns {{ voice: object | null, persona: string }}
+ * 既定キャラクターの default-profile.json（{ voice, persona, lines }）を読む。無い・壊れていれば未設定。
+ * lines（セリフ。F-22・Phase 13）は壊れた行だけを捨てる（characterLines.parseLines）。
+ * @returns {{ voice: object | null, persona: string, lines: ReturnType<typeof parseLines> }}
  */
 export function parseDefaultProfile(raw) {
   const r = isPlainObject(raw) ? raw : {};
-  return { voice: parseVoice(r.voice), persona: parsePersona(r.persona) };
+  return { voice: parseVoice(r.voice), persona: parsePersona(r.persona), lines: parseLines(r.lines) };
 }
 
 /**
