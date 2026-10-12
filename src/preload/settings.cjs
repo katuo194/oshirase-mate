@@ -72,11 +72,15 @@ contextBridge.exposeInMainWorld('oauthApi', {
     }
     return ipcRenderer.invoke('oauth:import-path', filePath);
   },
-  // 手順の名前（apis / branding / audience / client）だけを送る。URL はメインが決める
-  openConsole: (step) => ipcRenderer.invoke('oauth:open-console', String(step)),
   onChanged: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('oauth:changed', listener);
     return () => ipcRenderer.removeListener('oauth:changed', listener);
   },
+});
+
+// 外部のページ（「Google 連携の準備」の Console・VOICEVOX・Gemini API キー。v5.15）を既定のブラウザで開く。
+// リンクの名前（apis / branding / audience / client / voicevox / geminiKey）だけを送り、URL はメインが決める
+contextBridge.exposeInMainWorld('linksApi', {
+  open: (name) => ipcRenderer.invoke('links:open', String(name)),
 });

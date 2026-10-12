@@ -169,7 +169,6 @@ const OAUTH_ERRORS = {
   save_failed: '暗号化して保存できませんでした。',
   not_shared: 'この版では .env の値を使います。',
   manual_failed: 'セットアップ手順書を開けませんでした。アプリのフォルダにある「セットアップ手順書.html」を開いてください。',
-  console_failed: 'ブラウザを開けませんでした。',
 };
 const LOCKED_MESSAGE = '連携中は変更できません。変更するときは先に「連携解除」してください。';
 
@@ -265,11 +264,17 @@ oauthSave.addEventListener('click', () => void saveOAuth());
 oauthClear.addEventListener('click', () => void runOAuthAction(() => window.oauthApi.clear()));
 oauthImport.addEventListener('click', () => void runOAuthAction(() => window.oauthApi.importFile()));
 
-// 手順 1〜3：Console のページを既定のブラウザで開く
-for (const button of document.querySelectorAll('[data-console]')) {
+// 外部のページを既定のブラウザで開くボタン（手順 1〜3 の Console・ボイス欄の VOICEVOX・チャット欄の Gemini API キー。v5.15）。
+// リンクの名前（data-link）だけをメインへ送る。開けなかったら、そのボタンがある欄の詳細の行に出す
+for (const button of document.querySelectorAll('[data-link]')) {
   button.addEventListener('click', async () => {
-    const r = await window.oauthApi.openConsole(button.dataset.console);
-    if (!r.ok) showOAuthError('console_failed');
+    const r = await window.linksApi.open(button.dataset.link);
+    if (r.ok) return;
+    const detail = button.closest('section')?.querySelector('p[id$="-detail"]');
+    if (!detail) return;
+    detail.textContent = 'ブラウザを開けませんでした。';
+    detail.hidden = false;
+    detail.classList.add('error');
   });
 }
 
@@ -399,12 +404,12 @@ geminiClear.addEventListener('click', async () => {
 window.geminiApi.onChanged(renderGemini);
 window.geminiApi.getState().then(renderGemini);
 
-// ---- ショートカット（F-19。配布版のみ） ----
+// ---- ショートカット（F-19。ソースからの起動でも作れる：v5.15。作れないのは Windows 以外だけ） ----
 const SHORTCUT_LOCATIONS = ['desktop', 'startMenu'];
 const shortcutDetail = document.getElementById('shortcut-detail');
 const SHORTCUT_STATUS_TEXT = { none: 'なし', ok: '作成済み', stale: '場所が古い（作り直してください）' };
 const SHORTCUT_ERRORS = {
-  unsupported: '開発中の実行ではショートカットを作れません（配布版でのみ使えます）。',
+  unsupported: 'この環境ではショートカットを作れません。',
   write_failed: 'ショートカットを作成できませんでした。',
   remove_failed: 'ショートカットを削除できませんでした。',
 };
@@ -415,7 +420,7 @@ function renderShortcuts(state) {
     const create = document.getElementById(`shortcut-${loc}-create`);
     const remove = document.getElementById(`shortcut-${loc}-remove`);
     const s = state.supported ? state[loc] : null;
-    status.textContent = state.supported ? SHORTCUT_STATUS_TEXT[s] : '配布版でのみ使えます';
+    status.textContent = state.supported ? SHORTCUT_STATUS_TEXT[s] : 'この環境では使えません';
     status.classList.toggle('linked', s === 'ok');
     status.classList.toggle('warning', s === 'stale');
     create.hidden = !state.supported || s === 'ok';

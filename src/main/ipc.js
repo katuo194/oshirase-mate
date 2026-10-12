@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
 import { DEFAULT_CHARACTER_ID, SLOT_NAMES, characterFrameUrl, describeImportError, isValidCharacterId } from './characterImport.js';
-import { consoleUrlFor } from './googleConsoleLinks.js';
+import { externalUrlFor } from './externalLinks.js';
 
 /** 既定キャラクターの表示名（選択画面・編集画面） */
 const DEFAULT_CHARACTER_NAME = '黄色い丸（既定）';
@@ -163,16 +163,15 @@ export function registerGeminiIpc({ getSettingsWindow, geminiKey }) {
  * - oauth:open-manual … セットアップ手順書を開く
  * - oauth:import-file … （Phase 12）ファイル選択ダイアログで Console の JSON を選ばせ、メインで読み込んで保存する。{ ok, reason?, canceled?, ...状態 }
  * - oauth:import-path … （Phase 12）設定画面にドロップされた JSON をメインで読み込んで保存する（受け取るのはファイルの場所だけ。中身は画面を通らない）
- * - oauth:open-console … （Phase 12）「Google 連携の準備」の手順の名前を受け取り、決まった Console のページを既定のブラウザで開く（googleConsoleLinks.js）
  * - oauth:changed     … 状態が変わるたびに設定ウィンドウへ通知
+ * 手順 1〜3 のボタンで Console のページを開くのは links:open（registerLinksIpc）。
  * @param {object} opts
  * @param {() => Electron.BrowserWindow | null} opts.getSettingsWindow
  * @param {ReturnType<import('./oauthClient.js').createOAuthClient>} opts.oauthClient
  * @param {() => Promise<boolean>} opts.openManual
  * @param {(win: Electron.BrowserWindow) => Promise<string | null>} opts.pickClientFile OSのファイル選択ダイアログ（JSON）
- * @param {(url: string) => Promise<void>} opts.openExternal 既定のブラウザで開く
  */
-export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openManual, pickClientFile, openExternal }) {
+export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openManual, pickClientFile }) {
   const isFromSettingsWindow = senderCheck(getSettingsWindow);
   const guard = (e) => {
     if (!isFromSettingsWindow(e)) throw new Error('forbidden');
@@ -219,9 +218,26 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
     return { ...result, ...oauthClient.getState() };
   });
 
-  ipcMain.handle('oauth:open-console', async (e, step) => {
-    guard(e);
-    const url = consoleUrlFor(step);
+  oauthClient.events.on('change', (state) => {
+    const win = getSettingsWindow();
+    if (win && !win.isDestroyed()) win.webContents.send('oauth:changed', state);
+  });
+}
+
+/**
+ * 設定画面のボタンで外部のページを既定のブラウザで開くIPC（設定ウィンドウからのみ。Phase 12・v5.15）。
+ * 画面からはリンクの名前（externalLinks.js の表のキー）だけを受け取り、URL はメインが決める（知らない名前は開かない）。
+ * - links:open … { ok }
+ * @param {object} opts
+ * @param {() => Electron.BrowserWindow | null} opts.getSettingsWindow
+ * @param {(url: string) => Promise<void>} opts.openExternal 既定のブラウザで開く
+ */
+export function registerLinksIpc({ getSettingsWindow, openExternal }) {
+  const isFromSettingsWindow = senderCheck(getSettingsWindow);
+
+  ipcMain.handle('links:open', async (e, name) => {
+    if (!isFromSettingsWindow(e)) throw new Error('forbidden');
+    const url = externalUrlFor(name);
     if (!url) return { ok: false };
     try {
       await openExternal(url);
@@ -229,11 +245,6 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
     } catch {
       return { ok: false };
     }
-  });
-
-  oauthClient.events.on('change', (state) => {
-    const win = getSettingsWindow();
-    if (win && !win.isDestroyed()) win.webContents.send('oauth:changed', state);
   });
 }
 

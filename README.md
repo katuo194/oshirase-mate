@@ -49,11 +49,11 @@ Google のデータを読むための「クライアント」を、あなたの 
 
 ### 読み上げ（任意）
 
-[VOICEVOX](https://voicevox.hiroshiba.jp/) をインストールして起動しておくと、お知らせ・アイドルトーク・チャットを読み上げます（VOICEVOX はアプリに含まれていないので、各自でインストールしてください）。GPU 版を使うと読み上げの準備が速くなります。設定画面の「ボイス（VOICEVOX）」欄が「接続中」になれば準備完了です。
+[VOICEVOX](https://voicevox.hiroshiba.jp/) をインストールして起動しておくと、お知らせ・アイドルトーク・チャットを読み上げます（VOICEVOX はアプリに含まれていないので、各自でインストールしてください。設定画面の「VOICEVOX を入手」で公式サイトが開きます）。GPU 版を使うと読み上げの準備が速くなります。設定画面の「ボイス（VOICEVOX）」欄が「接続中」になれば準備完了です。
 
 ### チャット（任意）
 
-[Google AI Studio](https://aistudio.google.com/apikey) で Gemini API キーを作成し、設定画面の「チャット（Gemini）」欄に貼り付けて保存すると、右クリックメニューの「話しかける」が使えるようになります。
+設定画面の「API キーを取得」で [Google AI Studio](https://aistudio.google.com/apikey) を開いて Gemini API キーを作成し、設定画面の「チャット（Gemini）」欄に貼り付けて保存すると、右クリックメニューの「話しかける」が使えるようになります。
 
 ## 使い方
 

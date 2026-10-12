@@ -46,7 +46,9 @@ npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 �
 
 `--user-data-dir` を明示したときだけ、普段の保存先の固定（`src/main/pinUserDataDir.js`）をしません（要件定義書 v5.15）。起動ログの先頭が「起動（共有版）」になっていれば共有版です（ログは `$env:TEMP\mascot-shared\logs\`）。保存先が別なので、個人版を起動したままでも同時に起動できます。
 
-設定画面の「Google 連携の準備」（手順 1〜5）の各ボタンが開く Console のページは `src/main/googleConsoleLinks.js`、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL が変わったら、この表と手順書を直してください。
+設定画面のボタンで開く外部のページ（「Google 連携の準備」の手順 1〜3 の Console・VOICEVOX・Gemini API キー）は `src/main/externalLinks.js` の表、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL が変わったら、この表と手順書を直してください。
+
+設定画面の「ショートカット」欄は、ソースから起動しているときも使えます。作られるのは `おしらせメイト（開発）.lnk`（Electron 本体に、アプリのフォルダと、起動時に指定した `--user-data-dir` を渡すもの）で、配布版の `おしらせメイト.lnk` とは別です。上の手順で起動してから作れば、そのショートカットからも同じ保存先の共有版で起動できます。
 
 ## 配布用のビルド（Windows・zip）
 

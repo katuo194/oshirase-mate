@@ -24,15 +24,17 @@ describe('利用者向けの文書・画面', () => {
     expect(withoutComments(read('docs/setup-guide.html'))).not.toContain('共有版');
   });
 
-  it('設定画面に「共有版」が出てこない（見出しは「Google 連携の準備」）', () => {
+  it('設定画面に「共有版」「配布版」が出てこない（見出しは「Google 連携の準備」）', () => {
     const html = withoutComments(read('src/renderer/settings/index.html'));
-    expect(html).not.toContain('共有版');
     expect(html).toContain('<h2>Google 連携の準備</h2>');
     // app.js の文字列（コメントを除く）にも出さない
     const js = read('src/renderer/settings/app.js')
       .split(/\r?\n/)
       .filter((line) => !line.trim().startsWith('//'))
       .join('\n');
-    expect(js).not.toContain('共有版');
+    for (const word of ['共有版', '配布版']) {
+      expect(html).not.toContain(word);
+      expect(js).not.toContain(word);
+    }
   });
 });

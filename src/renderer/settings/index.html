@@ -20,7 +20,7 @@
           <div class="step-head">
             <span class="step-num" aria-hidden="true">1</span>
             <span class="step-title">プロジェクトを作り、API を有効にする</span>
-            <button type="button" data-console="apis">開く</button>
+            <button type="button" data-link="apis">開く</button>
           </div>
           <p class="step-desc">プロジェクトを作成（または選択）し、表示される 3 つの API（Calendar・Tasks・Gmail）を有効にします。</p>
         </li>
@@ -30,9 +30,9 @@
             <span class="step-title">同意画面を設定して公開する</span>
           </div>
           <p class="step-desc">
-            <button type="button" class="inline" data-console="branding">同意画面</button>
+            <button type="button" class="inline" data-link="branding">同意画面</button>
             でアプリ名（例：おしらせメイト）と自分のメールアドレスを入れて作成します（対象は「外部」）。続けて
-            <button type="button" class="inline" data-console="audience">対象</button>
+            <button type="button" class="inline" data-link="audience">対象</button>
             で「アプリを公開」を押し、<strong>本番環境</strong>にします（テストのままだと 7 日で連携が切れます）。
           </p>
         </li>
@@ -40,7 +40,7 @@
           <div class="step-head">
             <span class="step-num" aria-hidden="true">3</span>
             <span class="step-title">クライアントを作り、JSON をダウンロードする</span>
-            <button type="button" data-console="client">開く</button>
+            <button type="button" data-link="client">開く</button>
           </div>
           <p class="step-desc">種類は「デスクトップ アプリ」で作成し、<strong>作成直後に表示される画面で「JSON をダウンロード」</strong>を押します。シークレットはこの画面でしか表示・ダウンロードできません（閉じてしまったら、クライアントを作り直してください）。</p>
         </li>
@@ -116,11 +116,13 @@
       <div class="auth-row">
         <span id="voice-status" class="auth-status">確認中…</span>
         <div class="auth-actions">
+          <button type="button" data-link="voicevox">VOICEVOX を入手</button>
           <button id="voice-recheck" type="button">再確認</button>
         </div>
       </div>
       <p id="voice-detail" class="hint" hidden></p>
       <p id="voice-credit" class="hint" hidden></p>
+      <p class="hint">読み上げには VOICEVOX（無料）を使います。「VOICEVOX を入手」で公式サイトが開きます（GPU 版がおすすめです）。インストールして起動したら「再確認」を押してください。</p>
     </section>
 
     <!-- チャット（Gemini。F-16）。キーは暗号化して保存し、この画面には二度と表示しない -->
@@ -129,6 +131,7 @@
       <div class="auth-row">
         <span id="gemini-status" class="auth-status">確認中…</span>
         <div class="auth-actions">
+          <button type="button" data-link="geminiKey">API キーを取得</button>
           <button id="gemini-clear" type="button" hidden>キーを削除</button>
         </div>
       </div>
@@ -137,7 +140,7 @@
         <button id="gemini-save" type="button">保存</button>
       </div>
       <p id="gemini-detail" class="hint" hidden></p>
-      <p class="hint">キーは Google AI Studio で取得できます。暗号化してこのPC内に保存され、キーを入力すると右クリックメニューの「話しかける」が使えるようになります。</p>
+      <p class="hint">「API キーを取得」で Google AI Studio が開きます。「API キーを作成」で作ったキーを貼り付けて保存してください。キーは暗号化してこのPC内に保存され、キーを入力すると右クリックメニューの「話しかける」が使えるようになります。</p>
     </section>
 
     <section>
@@ -157,7 +160,7 @@
       <p class="hint">オンにすると、マスコットは通知のときだけ現れて、終わると消えます（独り言も話しません）。メニューはタスクトレイのアイコンから開けます。</p>
     </section>
 
-    <!-- ショートカット（F-19。配布版のみ作成できる） -->
+    <!-- ショートカット（F-19。v5.15 でソースからの起動でも作れるようにした〔おしらせメイト（開発）.lnk〕） -->
     <section>
       <h2>ショートカット</h2>
       <div class="auth-row">
