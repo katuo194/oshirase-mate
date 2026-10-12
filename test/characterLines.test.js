@@ -88,13 +88,11 @@ describe('characterLines / 入力の検証（validateLines）', () => {
     expect(validateLines({ idle: { morning: 'おはよう{title}' } }).error).toMatchObject({ code: 'lines_unknown_placeholder', group: 'idle', kind: 'morning' });
   });
 
-  it('{title} の無い通知のセリフは保存させない', () => {
-    expect(validateLines({ notify: { gmail: '{title}だよ\n{from}さんからメール' } }).error).toEqual({
-      code: 'lines_missing_title',
-      group: 'notify',
-      kind: 'gmail',
-      line: 2,
-    });
+  it('差し込みはどれも任意（{title} の無い通知のセリフ・差し込みの無いセリフも保存できる）', () => {
+    expect(validateLines({ notify: { gmail: '{title}だよ\n{from}さんからメール\nメールが来たよ' } })).toEqual(
+      ok(withLines({ notify: { gmail: ['{title}だよ', '{from}さんからメール', 'メールが来たよ'] } })),
+    );
+    expect(validateLines({ notify: { calendar: '{time}から予定があるよ' } }).ok).toBe(true);
   });
 
   it('形の崩れた入力は lines_invalid', () => {
@@ -106,9 +104,6 @@ describe('characterLines / 入力の検証（validateLines）', () => {
   it('エラーの文に種類と何行目かが入る', () => {
     expect(describeLinesError({ code: 'lines_unknown_placeholder', placeholder: 'date', group: 'notify', kind: 'gmail', line: 3 })).toBe(
       'セリフ「重要メール」の 3 行目：{date} は使えない差し込みです（使えるのは {title}・{from}）',
-    );
-    expect(describeLinesError({ code: 'lines_missing_title', group: 'notify', kind: 'calendar', line: 1 })).toBe(
-      'セリフ「予定（時刻あり）」の 1 行目：{title}（件名）を入れてください',
     );
     expect(describeLinesError({ code: 'lines_too_long', group: 'idle', kind: 'normal', line: 2 })).toContain(`${IDLE_LINE_MAX} 文字以内`);
     expect(describeLinesError({ code: 'lines_too_many', group: 'idle', kind: 'morning', max: 10 })).toBe('セリフ「朝の挨拶」：10 文までにしてください');
@@ -130,7 +125,7 @@ describe('characterLines / 保存済みの値の読み込み（parseLines）', (
       },
       idle: { normal: ['ふわぁ', null, '{title}だよ', 'あ'.repeat(IDLE_LINE_MAX + 1)] },
     };
-    expect(parseLines(raw)).toEqual(withLines({ notify: { calendar: ['{time}から{title}', '{title}'] }, idle: { normal: ['ふわぁ'] } }));
+    expect(parseLines(raw)).toEqual(withLines({ notify: { calendar: ['{time}から{title}', '{title}', '件名なし'] }, idle: { normal: ['ふわぁ'] } }));
   });
 
   it('多すぎる分は先頭から上限まで残す', () => {
@@ -165,6 +160,11 @@ describe('characterLines / 実際に使うセリフ（effectiveLines）', () => 
 describe('characterLines / 差し込みの展開（renderSpeech・isUsableLine）', () => {
   it('差し込みを展開する', () => {
     expect(renderSpeech('{time}から{title}だよ', { title: '会議', time: '10時30分', from: '' })).toBe('10時30分から会議だよ');
+  });
+
+  it('{title} の無いセリフは件名を読まない（長い件名でも切り詰めは要らない）', () => {
+    expect(renderSpeech('{from}さんからメールだよ', { title: 'あ'.repeat(200), from: '田中' })).toBe('田中さんからメールだよ');
+    expect(renderSpeech('予定があるよ', { title: '会議', time: '' })).toBe('予定があるよ');
   });
 
   it('{title} 以外の差し込みの値が空になる文は使えない（{title} は空でも使える）', () => {

@@ -1,7 +1,8 @@
 // キャラクターごとのセリフ（F-22・Phase 13）。Electron に依存しない純粋関数。
 //
 // lines … { notify: { calendar, calendarAllDay, tasks, gmail }, idle: { morning, bedtime, normal } }（各値は文の配列）
-//   notify：通知の読み上げ文のひな形。差し込み {title}（必須）・{time}（予定・時刻ありのみ）・{from}（重要メールのみ）を使える
+//   notify：通知の読み上げ文のひな形。差し込み {title}・{time}（予定・時刻ありのみ）・{from}（重要メールのみ）を使える。
+//           どれも任意（{title} を入れない文は件名を読まない。吹き出しには件名が出る）
 //   idle  ：アイドルトークの文（差し込みなし）
 // 設定しなかった種類（空の配列）は、今の固定文（DEFAULT_NOTIFY_LINES・idleTalkPhrases.js）を使う（effectiveLines）。
 // セリフは読み上げにだけ使い、吹き出しは今のまま（種別・件名・時刻）。
@@ -19,7 +20,7 @@ export const SPEECH_MAX = 50;
 export const NOTIFY_KINDS = Object.freeze(['calendar', 'calendarAllDay', 'tasks', 'gmail']);
 export const IDLE_KINDS = Object.freeze(['morning', 'bedtime', 'normal']);
 
-/** 通知のセリフで使える差し込み（種類ごと）。title は必須 */
+/** 通知のセリフで使える差し込み（種類ごと）。どれも任意 */
 export const NOTIFY_PLACEHOLDERS = Object.freeze({
   calendar: Object.freeze(['title', 'time']),
   calendarAllDay: Object.freeze(['title']),
@@ -92,7 +93,6 @@ function checkLine(group, kind, line) {
     const allowed = NOTIFY_PLACEHOLDERS[kind];
     const unknown = names.find((n) => !allowed.includes(n));
     if (unknown !== undefined) return { code: 'lines_unknown_placeholder', placeholder: unknown };
-    if (!names.includes('title')) return { code: 'lines_missing_title' };
     if (codePoints(line.replace(PLACEHOLDER_RE, '')) > NOTIFY_LINE_MAX) return { code: 'lines_too_long' };
     return null;
   }
@@ -146,7 +146,7 @@ export function validateLines(raw) {
 }
 
 /**
- * 保存済みの lines を読む。無い・壊れた種類は空、壊れた行（文字列でない・字数超え・知らない差し込み・{title} が無い）はその行だけを捨てる。
+ * 保存済みの lines を読む。無い・壊れた種類は空、壊れた行（文字列でない・字数超え・知らない差し込み）はその行だけを捨てる。
  * 多すぎる分は先頭から上限まで残す。キャラクター自体は一覧から外さない。
  * @returns {ReturnType<typeof emptyLines>}
  */
@@ -185,7 +185,7 @@ export function effectiveLines(lines) {
 
 /**
  * 文が使えるか：{title} 以外の差し込みの値がすべて空でないこと（差出人が無いのに {from} を含む文などは避ける）。
- * {title} は必須の差し込みなので、件名が空でも使える（今の固定文と同じく、件名なしで読む）。
+ * {title} は件名が空でも使える（今の固定文と同じく、件名なしで読む）。
  * @param {string} line
  * @param {Record<string, string>} values
  */
@@ -252,8 +252,6 @@ export function describeLinesError(error) {
       const hint = allowed ? `（使えるのは ${allowed.map((n) => `{${n}}`).join('・')}）` : '（アイドルトークには差し込みを使えません）';
       return `${where}{${error.placeholder ?? ''}} は使えない差し込みです${hint}`;
     }
-    case 'lines_missing_title':
-      return `${where}{title}（件名）を入れてください`;
     default:
       return `${where}形式が正しくありません`;
   }

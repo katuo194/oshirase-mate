@@ -471,15 +471,17 @@ describe('manifest.json（セリフ。Phase 13・F-22）', () => {
     const old = buildManifest(base);
     delete old.lines;
     expect(parseManifest(old)).toMatchObject({ id: 'emotelab-3f9a1c2e', lines: emptyLines() });
-    const broken = { ...buildManifest(base), lines: { notify: { tasks: ['{title}だよ', '件名なし', 7] }, idle: 'x' } };
+    const broken = { ...buildManifest(base), lines: { notify: { tasks: ['{title}だよ', '件名なし', '{who}だよ', 7] }, idle: 'x' } };
     const parsed = parseManifest(broken);
     expect(parsed).not.toBeNull();
-    expect(parsed.lines.notify.tasks).toEqual(['{title}だよ']);
+    expect(parsed.lines.notify.tasks).toEqual(['{title}だよ', '件名なし']);
     expect(parsed.lines.idle.normal).toEqual([]);
   });
 
   it('セリフのエラーは種類と行を含む文にする', () => {
-    expect(describeImportError({ code: 'lines_missing_title', group: 'notify', kind: 'tasks', line: 2 })).toBe('セリフ「TODO」の 2 行目：{title}（件名）を入れてください');
+    expect(describeImportError({ code: 'lines_unknown_placeholder', placeholder: 'from', group: 'notify', kind: 'tasks', line: 2 })).toBe(
+      'セリフ「TODO」の 2 行目：{from} は使えない差し込みです（使えるのは {title}）',
+    );
   });
 });
 
@@ -531,8 +533,8 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
     const repo = createRepo();
     const rest = await makeFolder('rest', 1);
     const slots = { rest: { dir: rest }, notify: { dir: rest } };
-    const r = await repo.importCharacter({ displayName: 'A', slots, lines: { notify: { gmail: '{title}\n{from}だけ' } } });
-    expect(r).toEqual({ ok: false, error: { code: 'lines_missing_title', group: 'notify', kind: 'gmail', line: 2 } });
+    const r = await repo.importCharacter({ displayName: 'A', slots, lines: { notify: { gmail: '{title}\n{from}と{time}' } } });
+    expect(r).toEqual({ ok: false, error: { code: 'lines_unknown_placeholder', placeholder: 'time', group: 'notify', kind: 'gmail', line: 2 } });
     expect(await repo.list()).toEqual([]);
   });
 

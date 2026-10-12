@@ -240,9 +240,9 @@ personaEl.addEventListener('input', syncPersonaCount);
 
 // ---- セリフ（F-22）。欄はメインの案内（linesGuide：種類ごとの既定の文・使える差し込み・上限）から作る ----
 
-/** 差し込みの説明 */
+/** 差し込みの説明（どれも任意。{title} を入れない文は件名を読まない） */
 const PLACEHOLDER_HELP = {
-  title: '{title}＝件名（必須）',
+  title: '{title}＝件名（入れないと件名は読みません）',
   time: '{time}＝開始時刻（例「10時30分」）',
   from: '{from}＝差出人',
 };

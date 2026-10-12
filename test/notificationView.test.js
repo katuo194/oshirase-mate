@@ -260,6 +260,13 @@ describe('notificationView / F-22 キャラクターのセリフ', () => {
     expect(toSpeechText(cal({ data: {} }), { lines })).toBe('予定のお知らせです。定例ミーティング');
   });
 
+  it('{title} の無いセリフは件名を読まない（吹き出しには件名が出る）', () => {
+    const lines = { tasks: ['やることがあるよ！'], gmail: ['{from}さんからメールだよ'] };
+    expect(toSpeechText(task(), { lines })).toBe('やることがあるよ！');
+    expect(toSpeechText(mail(), { lines })).toBe('田中さんからメールだよ');
+    expect(toPresentation(task(), { now: NOW, lines })).toMatchObject({ title: '書類を出す', speech: 'やることがあるよ！' });
+  });
+
   it('文の選び方（pickLine）を渡すと、それで選ぶ（使えるかの判定も渡す）', () => {
     const calls = [];
     const pickLine = (kind, accept) => {
