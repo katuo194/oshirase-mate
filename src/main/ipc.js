@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
 import { DEFAULT_CHARACTER_ID, SLOT_NAMES, characterFrameUrl, describeImportError, isValidCharacterId } from './characterImport.js';
+import { externalUrlFor } from './externalLinks.js';
 
 /** 既定キャラクターの表示名（選択画面・編集画面） */
 const DEFAULT_CHARACTER_NAME = '黄色い丸（既定）';
@@ -155,18 +156,22 @@ export function registerGeminiIpc({ getSettingsWindow, geminiKey }) {
 
 /**
  * 共有版の OAuth Client ID/Secret 用IPC（設定ウィンドウからのみ。2.4・3.6・F-18）。
- * レンダラーへ渡すのは状態（{ edition, userInput, configured, clientId, editable }）とエラー種別だけで、Secret は戻り値にもイベントにも載せない。
+ * レンダラーへ渡すのは状態（{ edition, userInput, configured, editable }）とエラー種別だけで、Secret も Client ID も戻り値・イベントに載せない（v5.15）。
  * - oauth:get-state   … 状態
  * - oauth:set         … { clientId, clientSecret } を検証して暗号化保存。{ ok, reason?, ...状態 }（個人版・連携中は拒否）
  * - oauth:clear       … 削除（個人版・連携中は拒否）
  * - oauth:open-manual … セットアップ手順書を開く
+ * - oauth:import-file … （Phase 12）ファイル選択ダイアログで Console の JSON を選ばせ、メインで読み込んで保存する。{ ok, reason?, canceled?, ...状態 }
+ * - oauth:import-path … （Phase 12）設定画面にドロップされた JSON をメインで読み込んで保存する（受け取るのはファイルの場所だけ。中身は画面を通らない）
  * - oauth:changed     … 状態が変わるたびに設定ウィンドウへ通知
+ * 手順 1〜3 のボタンで Console のページを開くのは links:open（registerLinksIpc）。
  * @param {object} opts
  * @param {() => Electron.BrowserWindow | null} opts.getSettingsWindow
  * @param {ReturnType<import('./oauthClient.js').createOAuthClient>} opts.oauthClient
  * @param {() => Promise<boolean>} opts.openManual
+ * @param {(win: Electron.BrowserWindow) => Promise<string | null>} opts.pickClientFile OSのファイル選択ダイアログ（JSON）
  */
-export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openManual }) {
+export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openManual, pickClientFile }) {
   const isFromSettingsWindow = senderCheck(getSettingsWindow);
   const guard = (e) => {
     if (!isFromSettingsWindow(e)) throw new Error('forbidden');
@@ -195,9 +200,51 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
     return { ok: await openManual() };
   });
 
+  ipcMain.handle('oauth:import-file', async (e) => {
+    guard(e);
+    // 共有版でない・連携中ならダイアログを出さずに理由を返す
+    const { userInput, editable } = oauthClient.getState();
+    if (!userInput) return { ok: false, reason: 'not_shared', ...oauthClient.getState() };
+    if (!editable) return { ok: false, reason: 'linked', ...oauthClient.getState() };
+    const filePath = await pickClientFile(getSettingsWindow());
+    if (!filePath) return { ok: false, canceled: true, ...oauthClient.getState() };
+    const result = await oauthClient.importFile(filePath);
+    return { ...result, ...oauthClient.getState() };
+  });
+
+  ipcMain.handle('oauth:import-path', async (e, filePath) => {
+    guard(e);
+    const result = await oauthClient.importFile(typeof filePath === 'string' ? filePath : '');
+    return { ...result, ...oauthClient.getState() };
+  });
+
   oauthClient.events.on('change', (state) => {
     const win = getSettingsWindow();
     if (win && !win.isDestroyed()) win.webContents.send('oauth:changed', state);
+  });
+}
+
+/**
+ * 設定画面のボタンで外部のページを既定のブラウザで開くIPC（設定ウィンドウからのみ。Phase 12・v5.15）。
+ * 画面からはリンクの名前（externalLinks.js の表のキー）だけを受け取り、URL はメインが決める（知らない名前は開かない）。
+ * - links:open … { ok }
+ * @param {object} opts
+ * @param {() => Electron.BrowserWindow | null} opts.getSettingsWindow
+ * @param {(url: string) => Promise<void>} opts.openExternal 既定のブラウザで開く
+ */
+export function registerLinksIpc({ getSettingsWindow, openExternal }) {
+  const isFromSettingsWindow = senderCheck(getSettingsWindow);
+
+  ipcMain.handle('links:open', async (e, name) => {
+    if (!isFromSettingsWindow(e)) throw new Error('forbidden');
+    const url = externalUrlFor(name);
+    if (!url) return { ok: false };
+    try {
+      await openExternal(url);
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
   });
 }
 

@@ -27,6 +27,7 @@ import {
   registerCharacterIpc,
   registerChatIpc,
   registerGeminiIpc,
+  registerLinksIpc,
   registerOAuthClientIpc,
   registerSettingsIpc,
   registerShortcutIpc,
@@ -38,6 +39,7 @@ import { resolveVoiceConfig } from './characterProfile.js';
 import { buildSystemPrompt } from './chatPersona.js';
 import { applyLoginItem } from './autostart.js';
 import { createShortcuts } from './shortcuts.js';
+import { isExternalLinkUrl } from './externalLinks.js';
 import { allowsIdleTalk } from './mascotVisibility.js';
 import { createAuth } from './auth.js';
 import { oauthSourceFor } from './edition.js';
@@ -209,9 +211,12 @@ if (!app.requestSingleInstanceLock()) {
     registerShortcutIpc({
       getSettingsWindow,
       shortcuts: createShortcuts({
-        isPackaged: app.isPackaged,
         platform: process.platform,
         execPath: process.execPath,
+        // ソースから起動しているときは、Electron 本体にアプリのフォルダ（と明示された --user-data-dir）を渡す開発用のショートカットにする（v5.15）
+        dev: app.isPackaged
+          ? null
+          : { appPath: app.getAppPath(), userDataDir: app.commandLine.hasSwitch('user-data-dir') ? app.getPath('userData') : null },
         dirs: {
           desktop: app.getPath('desktop'),
           startMenu: path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
@@ -239,7 +244,7 @@ if (!app.requestSingleInstanceLock()) {
       openManual: async () => {
         const manual = app.isPackaged
           ? path.join(path.dirname(process.execPath), 'セットアップ手順書.html')
-          : path.join(app.getAppPath(), 'docs', 'shared-edition-setup.html');
+          : path.join(app.getAppPath(), 'docs', 'setup-guide.html');
         if (!fs.existsSync(manual)) {
           log.warn('[oauth] セットアップ手順書が見つかりません');
           return false;
@@ -249,6 +254,25 @@ if (!app.requestSingleInstanceLock()) {
           openExternal: (url) => (url.startsWith('https://') ? shell.openExternal(url) : Promise.resolve()),
         });
         return true;
+      },
+      // 「Google 連携の準備」の手順 4：Console からダウンロードした JSON を選ぶ（Phase 12）
+      pickClientFile: async (win) => {
+        const r = await dialog.showOpenDialog(win, {
+          title: 'ダウンロードした OAuth クライアントの JSON を選択',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+          properties: ['openFile'],
+        });
+        return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+      },
+    });
+
+    // 設定画面のボタンで開く外部のページ（「Google 連携の準備」の Console・VOICEVOX・Gemini API キー。v5.15）。
+    // 開くのは externalLinks.js の表にある URL だけ（ipc.js がリンクの名前から URL を決め、ここでももう一度確かめる）
+    registerLinksIpc({
+      getSettingsWindow,
+      openExternal: async (url) => {
+        if (!isExternalLinkUrl(url)) throw new Error('unexpected url');
+        await shell.openExternal(url);
       },
     });
 

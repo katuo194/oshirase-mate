@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>おしらせメイト 共有版 セットアップ手順書</title>
-<!-- 共有版のセットアップ手順書（要件定義書 2.4・8章 Phase 9）。外部の読み込みを一切しない単体の HTML。
+<title>おしらせメイト セットアップ手順書</title>
+<!-- 配布する版（利用者が自分の OAuth クライアントを作る版）のセットアップ手順書（要件定義書 2.4・8章 Phase 9・Phase 12）。外部の読み込みを一切しない単体の HTML。
+     Google との連携の手順は、設定画面の「Google 連携の準備」（手順 1〜5）と番号・文言をそろえる。利用者向けの文書なので「共有版」という言葉は使わない。
      zip の中（実行ファイルと同じフォルダ）に同梱し、設定画面の「セットアップ手順を開く」でアプリ内のウィンドウに開く（https のリンクは既定のブラウザ）。単体でブラウザで開いても読める -->
 <style>
   :root {
@@ -141,11 +142,11 @@
       <li><a href="#install">1. アプリの準備</a></li>
       <li><a href="#google">2. Google との連携</a>
         <ol>
-          <li><a href="#google-project">2-1. プロジェクト</a></li>
-          <li><a href="#google-api">2-2. API の有効化</a></li>
-          <li><a href="#google-consent">2-3. 同意画面</a></li>
-          <li><a href="#google-client">2-4. OAuth クライアント</a></li>
-          <li><a href="#google-link">2-5. 入力して連携</a></li>
+          <li><a href="#google-apis">手順 1. API の有効化</a></li>
+          <li><a href="#google-consent">手順 2. 同意画面</a></li>
+          <li><a href="#google-client">手順 3. クライアント</a></li>
+          <li><a href="#google-import">手順 4. JSON の読み込み</a></li>
+          <li><a href="#google-link">手順 5. 連携</a></li>
         </ol>
       </li>
       <li><a href="#voicevox">3. VOICEVOX（読み上げ）</a></li>
@@ -157,17 +158,17 @@
 
   <main>
     <header class="hero" id="overview">
-      <h1>おしらせメイト 共有版 セットアップ手順書</h1>
+      <h1>おしらせメイト セットアップ手順書</h1>
       <p class="lead">デスクトップに常駐するマスコットが、Google カレンダー・Google Tasks・Gmail の通知を、アニメーション・効果音・読み上げで知らせるアプリです（Windows 11 専用）。</p>
     </header>
 
-    <p>共有版では、Google と連携するための「OAuth クライアント」を<strong>自分の Google アカウントで作成</strong>し、アプリに入力してもらいます（開発者の資格情報は同梱していません）。所要時間は初回で20〜30分ほどです。</p>
+    <p>Google と連携するための「クライアント」は、<strong>自分の Google アカウントで作成</strong>してアプリに読み込みます（開発者の資格情報はアプリに入っていません）。設定画面の案内に沿って進めれば、所要時間は初回で15〜20分ほどです。</p>
 
     <table>
       <thead><tr><th>手順</th><th>内容</th><th>必要か</th></tr></thead>
       <tbody>
         <tr><td><a href="#install">1</a></td><td>アプリの準備（zip を展開して起動）</td><td><span class="tag req">必須</span></td></tr>
-        <tr><td><a href="#google">2</a></td><td>Google Cloud で OAuth クライアントを作成し、アプリに入力して連携</td><td><span class="tag req">通知を使うなら必須</span></td></tr>
+        <tr><td><a href="#google">2</a></td><td>Google Cloud でクライアントを作成し、アプリに読み込んで連携</td><td><span class="tag req">通知を使うなら必須</span></td></tr>
         <tr><td><a href="#voicevox">3</a></td><td>VOICEVOX のインストール（読み上げ）</td><td><span class="tag opt">任意</span></td></tr>
         <tr><td><a href="#gemini">4</a></td><td>Gemini API キーの取得（チャット「話しかける」）</td><td><span class="tag opt">任意</span></td></tr>
       </tbody>
@@ -181,7 +182,7 @@
       <li>
         <strong>（推奨）ブロックを解除する</strong><br />
         zip を右クリック → <span class="ui">プロパティ</span> → 下の方の「セキュリティ：このファイルは他のコンピューターから取得したものです」の <span class="ui">許可する</span> にチェックを入れて <span class="ui">OK</span> を押します。
-        <ul><li>こうしておくと、展開したファイルを実行するときの警告が出なくなります。配布元に心当たりがない場合は行わないでください。</li></ul>
+        <ul><li>こうしておくと、展開したファイルを実行するときの警告が出なくなります。GitHub の公式の Releases 以外から入手した zip では行わないでください。</li></ul>
       </li>
       <li>
         <strong>展開する</strong><br />
@@ -194,7 +195,7 @@
         <ul>
           <li>「Windows によって PC が保護されました」と表示された場合は、<span class="ui">詳細情報</span> → <span class="ui">実行</span> を押します（このアプリはコード署名をしていないため）。</li>
         </ul>
-        <div class="note danger"><span class="note-title">「スマート アプリ コントロールによって…ブロックされました」と表示された場合</span>この PC では実行できません。スマート アプリ コントロールを無効にすると PC 全体の保護が弱まるため、この手順書では勧めません。配布元に相談してください。</div>
+        <div class="note danger"><span class="note-title">「スマート アプリ コントロールによって…ブロックされました」と表示された場合</span>この PC では実行できません。スマート アプリ コントロールを無効にすると PC 全体の保護が弱まるため、この手順書では勧めません。</div>
       </li>
       <li>
         <strong>表示を確認する</strong><br />
@@ -214,80 +215,81 @@
     <p>アプリを終了し、展開したフォルダの中身を新しい zip の中身で置き換えます（同じ場所に置けば自動起動の設定もそのまま使えます）。設定・連携情報は引き継がれます。</p>
 
     <!-- ================================================================ -->
-    <h2 id="google">2. Google との連携（OAuth クライアントの作成）</h2>
-    <p><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> を、<strong>通知を受け取りたい Google アカウント</strong>で開いて進めます。画面の表記は Google 側の変更で多少異なることがあります。</p>
+    <h2 id="google">2. Google との連携</h2>
+    <p>予定・TODO・メールを読むために、<strong>あなたの Google アカウントで「連携用のクライアント」を作り</strong>、アプリに読み込みます（開発者の資格情報はアプリに入っていません）。最初の1回だけの作業で、15分ほどかかります。</p>
+    <p>マスコットを右クリック → <span class="ui">設定</span> を開くと、いちばん上の <span class="ui">Google 連携の準備</span> 欄に手順 1〜5 が並んでいます。各手順のボタンを押すと、Google Cloud の該当ページが既定のブラウザで開きます。ここではそれぞれの手順を詳しく説明します。</p>
+    <div class="note"><span class="note-title">通知を受け取りたい Google アカウントで進めてください</span>ブラウザで複数の Google アカウントにログインしている場合は、開いたページの右上のアイコンで、使うアカウントに切り替えてから進めます。画面の表記は Google 側の変更で多少異なることがあります。</div>
 
-    <h3 id="google-project">2-1. プロジェクトを作る</h3>
+    <h3 id="google-apis">手順 1. プロジェクトを作り、API を有効にする</h3>
     <ol class="steps">
-      <li>画面上部のプロジェクト選択 → <span class="ui">新しいプロジェクト</span> を押します。</li>
-      <li>プロジェクト名（例：<code>mascot-notifier</code>）を入力して <span class="ui">作成</span> を押し、作成したプロジェクトを選択します。</li>
+      <li>設定画面の手順 1 の <span class="ui">開く</span> を押します（<a href="https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com,tasks.googleapis.com,gmail.googleapis.com" target="_blank" rel="noopener">このリンク</a> からも開けます）。</li>
+      <li>プロジェクトを選ぶ画面で <span class="ui">新しいプロジェクト</span>（または <span class="ui">プロジェクトを作成</span>）を押し、プロジェクト名（例：<code>oshirase-mate</code>）を入力して <span class="ui">作成</span> を押します。すでにこのアプリ用のプロジェクトがあれば、それを選びます。</li>
+      <li><strong>Google Calendar API・Google Tasks API・Gmail API</strong> の 3 つが表示されていることを確かめ、<span class="ui">次へ</span> → <span class="ui">有効にする</span> を押します。</li>
     </ol>
 
-    <h3 id="google-api">2-2. 3つの API を有効にする</h3>
-    <p><span class="ui">API とサービス</span> → <span class="ui">ライブラリ</span> で次の3つを検索し、それぞれ <span class="ui">有効にする</span> を押します。</p>
-    <ul>
-      <li><strong>Google Calendar API</strong></li>
-      <li><strong>Google Tasks API</strong></li>
-      <li><strong>Gmail API</strong></li>
-    </ul>
-
-    <h3 id="google-consent">2-3. OAuth 同意画面を設定する</h3>
+    <h3 id="google-consent">手順 2. 同意画面を設定して公開する</h3>
     <ol class="steps">
-      <li><span class="ui">API とサービス</span> → <span class="ui">OAuth 同意画面</span>（または <span class="ui">Google Auth Platform</span> → <span class="ui">ブランディング</span>）を開きます。</li>
-      <li>ユーザーの種類は <strong>「外部」</strong> を選びます。</li>
-      <li>アプリ名（例：<code>おしらせメイト</code>）、ユーザーサポートメール、デベロッパーの連絡先メールに自分のメールアドレスを入れて保存します。</li>
+      <li>設定画面の手順 2 の <span class="ui">同意画面</span> を押します。Google Auth Platform のページが開くので、まだ設定していなければ <span class="ui">開始</span> を押します。</li>
       <li>
-        <span class="ui">データアクセス</span>（スコープ）で次の3つを追加します（いずれも読み取り専用です）。
-        <ul class="copy-list">
-          <li><code>https://www.googleapis.com/auth/calendar.readonly</code><button class="copy" type="button">コピー</button></li>
-          <li><code>https://www.googleapis.com/auth/tasks.readonly</code><button class="copy" type="button">コピー</button></li>
-          <li><code>https://www.googleapis.com/auth/gmail.readonly</code><button class="copy" type="button">コピー</button></li>
-        </ul>
-      </li>
-      <li>
-        <span class="ui">対象</span>（公開ステータス）で <strong><span class="ui">アプリを公開</span> → 本番環境</strong> にします。
-        <div class="note danger"><span class="note-title">「テスト」のままにしないでください</span>テスト状態では連携が <strong>7日で切れ</strong>、毎週連携し直す必要があります。</div>
-        <div class="note">本番環境にしても Google の審査（検証）は不要です。自分だけが使う前提で、次の「未確認のアプリ」警告を許容します。</div>
-      </li>
-    </ol>
-
-    <h3 id="google-client">2-4. OAuth クライアントを作る</h3>
-    <ol class="steps">
-      <li><span class="ui">API とサービス</span> → <span class="ui">認証情報</span> → <span class="ui">認証情報を作成</span> → <span class="ui">OAuth クライアント ID</span> を選びます（または <span class="ui">Google Auth Platform</span> → <span class="ui">クライアント</span> → <span class="ui">クライアントを作成</span>）。</li>
-      <li>アプリケーションの種類は <strong>「デスクトップ アプリ」</strong> を選び、名前（例：<code>mascot</code>）を付けて <span class="ui">作成</span> を押します。</li>
-      <li>
-        表示された <strong>クライアント ID</strong>（<code>〜.apps.googleusercontent.com</code> で終わる値）と <strong>クライアント シークレット</strong> を控えます。
-        <div class="note warn">クライアント シークレットは他人に見せないでください（チャットやスクリーンショットに貼らない）。</div>
-      </li>
-    </ol>
-
-    <h3 id="google-link">2-5. アプリに入力して連携する</h3>
-    <ol class="steps">
-      <li>マスコットを右クリック → <span class="ui">設定</span> を開きます。</li>
-      <li>
-        <span class="ui">OAuth クライアント（共有版）</span> 欄に <strong>Client ID</strong> と <strong>Client Secret</strong> を貼り付けて <span class="ui">保存</span> を押します。
+        次のように入力して進めます。
         <ul>
-          <li>値は暗号化してこの PC 内に保存されます。保存後、Secret 欄は空に戻ります（再表示はされません）。</li>
-          <li>形式が違う・欄を取り違えているとエラーが表示されます。</li>
+          <li>アプリ情報：アプリ名（例：<code>おしらせメイト</code>）と、ユーザー サポートメール（自分のメールアドレス）</li>
+          <li>対象：<strong>「外部」</strong></li>
+          <li>連絡先情報：自分のメールアドレス</li>
+          <li>ポリシーに同意して <span class="ui">作成</span></li>
         </ul>
       </li>
-      <li><span class="ui">Googleアカウント連携</span> の <strong><span class="ui">連携する</span></strong> を押すとブラウザが開きます。</li>
+      <li>
+        設定画面の手順 2 の <span class="ui">対象</span> を押し、公開ステータスの <span class="ui">アプリを公開</span> を押して確認し、<strong>本番環境</strong>にします。
+        <div class="note danger"><span class="note-title">「テスト」のままにしないでください</span>テスト状態では連携が <strong>7日で切れ</strong>、毎週連携し直す必要があります。</div>
+        <div class="note">本番環境にしても Google の審査（確認）は不要です。自分だけが使う前提で、手順 5 の「Google で確認されていません」の警告を許容します。データアクセス（スコープ）の登録もしなくてかまいません（必要な権限は連携のときにアプリが求めます）。</div>
+      </li>
+    </ol>
+
+    <h3 id="google-client">手順 3. クライアントを作り、JSON をダウンロードする</h3>
+    <ol class="steps">
+      <li>設定画面の手順 3 の <span class="ui">開く</span> を押します（クライアントの作成ページが開きます）。</li>
+      <li>アプリケーションの種類は <strong>「デスクトップ アプリ」</strong> を選び、名前（例：<code>oshirase-mate</code>）を付けて <span class="ui">作成</span> を押します。</li>
+      <li>
+        <strong>作成直後に表示される画面で <span class="ui">JSON をダウンロード</span> を押します。</strong><code>client_secret_〜.json</code> という名前のファイルが「ダウンロード」フォルダに保存されます。
+        <div class="note danger"><span class="note-title">クライアント シークレットは、この画面でしか表示・ダウンロードできません</span>Google は、新しいクライアントのシークレットを作成直後にしか見せません。あとからクライアントの詳細画面でダウンロードした JSON にはシークレットが入っていないため、読み込めません。ダウンロードせずに閉じてしまったときは、クライアントの一覧からそのクライアントを削除し、作り直してください。</div>
+        <div class="note warn">JSON ファイルとシークレットは他人に見せないでください（チャットやスクリーンショットに貼らない）。</div>
+      </li>
+    </ol>
+
+    <h3 id="google-import">手順 4. ダウンロードした JSON を読み込む</h3>
+    <ol class="steps">
+      <li>設定画面の手順 4 の <span class="ui">ファイルを選ぶ</span> で <code>client_secret_〜.json</code> を選ぶか、エクスプローラーからファイルを手順 4 の枠にドラッグ＆ドロップします。</li>
+      <li>
+        読み込めると手順 4 に ✓ が付き、<strong>「読み込み済みです」</strong> と表示されます。
+        <ul>
+          <li>値は暗号化してこの PC 内に保存されます。読み込んだ後の JSON ファイルは削除してかまいません。</li>
+          <li>「種類が『ウェブ アプリケーション』です」と出たら、手順 3 で種類を「デスクトップ アプリ」にして作り直します。</li>
+          <li>「クライアント シークレットが入っていません」と出たら、手順 3 の注意のとおり、クライアントを作り直して作成直後の画面でダウンロードします。</li>
+        </ul>
+      </li>
+    </ol>
+    <div class="note">JSON の代わりに、設定画面の <span class="ui">手動で入力する</span> を開いて、クライアント ID（<code>〜.apps.googleusercontent.com</code> で終わる値）とクライアント シークレットを貼り付けて保存することもできます。</div>
+
+    <h3 id="google-link">手順 5. 連携する</h3>
+    <ol class="steps">
+      <li>設定画面の手順 5 の <strong><span class="ui">連携する</span></strong> を押すとブラウザが開きます。</li>
       <li>通知を受け取りたいアカウントを選びます。</li>
       <li>
         「Google hasn't verified this app（このアプリは Google で確認されていません）」と表示されたら、<span class="ui">詳細</span> → <span class="ui">（アプリ名）（安全ではないページ）に移動</span> を押します。
-        <ul><li>自分で作った OAuth クライアントなので問題ありません。</li></ul>
+        <ul><li>自分で作ったクライアントなので問題ありません。</li></ul>
       </li>
-      <li>権限の確認画面では、<strong>すべての項目にチェックを入れて</strong> <span class="ui">続行</span> を押します（1つでも外すと連携できません）。</li>
-      <li>ブラウザに完了の表示が出たら閉じてかまいません。設定画面の状態が <strong>「連携中」</strong> になれば完了です。</li>
+      <li>権限の確認画面では、<strong>すべての項目にチェックを入れて</strong> <span class="ui">続行</span> を押します（1つでも外すと連携できません）。いずれも読み取りだけの権限です。</li>
+      <li>ブラウザに完了の表示が出たら閉じてかまいません。設定画面の手順 5 に ✓ が付き、<span class="ui">Googleアカウント連携</span> 欄が <strong>「連携中」</strong> になれば完了です。</li>
     </ol>
-    <div class="note">連携中は Client ID/Secret を変更できません。変更したいときは <span class="ui">連携解除</span> → 値を保存し直す → <span class="ui">連携する</span> の順に操作します。</div>
+    <div class="note">連携中は読み込んだクライアントを変更できません。変更したいときは <span class="ui">連携解除</span> → 手順 4 で読み込み直す → <span class="ui">連携する</span> の順に操作します。</div>
 
     <!-- ================================================================ -->
     <h2 id="voicevox">3. VOICEVOX（読み上げ。任意）</h2>
     <p>通知・アイドルトーク・チャットの読み上げには、無料の音声合成ソフト <strong>VOICEVOX</strong> を使います。VOICEVOX は本アプリに含まれていません。使う場合は各自でインストールしてください。入れなくても、読み上げ以外の機能はすべて使えます。</p>
     <ol class="steps">
       <li>
-        <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX 公式サイト</a> からダウンロードしてインストールします。
+        設定画面の <span class="ui">ボイス（VOICEVOX）</span> 欄の <span class="ui">VOICEVOX を入手</span> を押すと（または <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX 公式サイト</a>）公式サイトが開くので、ダウンロードしてインストールします。
         <div class="note"><span class="note-title">GPU 版（DirectML）を推奨します</span>CPU 版では1件の読み上げの準備に10秒以上かかることがあり、読み上げが遅れたり間に合わなかったりします（GPU 版では1秒未満の実績があります）。</div>
       </li>
       <li>
@@ -303,7 +305,7 @@
     <h2 id="gemini">4. Gemini API キー（チャット「話しかける」。任意）</h2>
     <p>マスコットと会話する「話しかける」機能には、Google の Gemini API キーが必要です。</p>
     <ol class="steps">
-      <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> を開き、Google アカウントでログインします。</li>
+      <li>設定画面の <span class="ui">チャット（Gemini）</span> 欄の <span class="ui">API キーを取得</span> を押して（または <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>）、Google アカウントでログインします。</li>
       <li><span class="ui">API キーを作成</span> を押し、表示されたキーをコピーします。</li>
       <li>
         本アプリの設定画面の <span class="ui">チャット（Gemini）</span> 欄に貼り付けて <span class="ui">保存</span> を押します。
@@ -320,10 +322,12 @@
     <table>
       <thead><tr><th style="width: 38%">症状</th><th>対処</th></tr></thead>
       <tbody>
-        <tr><td>「連携する」が押せない／「設定が必要です」と表示される</td><td><a href="#google-link">2-5</a> の Client ID/Secret が保存されていません。保存し直してください。</td></tr>
-        <tr><td>連携すると「Client ID / Secret が Google に受け付けられませんでした」と出る</td><td><a href="#google-client">2-4</a> の値をコピーし直して保存してください（前後の空白・Secret の欠け・別のクライアントの値に注意）。クライアントを削除した場合は作り直します。</td></tr>
-        <tr><td>「必要な権限がすべて許可されませんでした」と出る</td><td><a href="#google-link">2-5</a> の手順6で、すべての項目にチェックを入れて連携し直してください。<a href="#google-consent">2-3</a> の手順4でスコープが3つとも追加されているかも確認します。</td></tr>
-        <tr><td>7日ほどで「連携の有効期限が切れました」と出る</td><td><a href="#google-consent">2-3</a> の手順5で、同意画面が「テスト」のままになっています。「本番環境」に公開してから連携し直してください。</td></tr>
+        <tr><td>「連携する」が押せない／「設定が必要です」と表示される</td><td><a href="#google-import">手順 4</a> の JSON がまだ読み込まれていません。読み込んでください。</td></tr>
+        <tr><td>JSON を読み込むと「クライアント シークレットが入っていません」と出る</td><td>作成後に詳細画面からダウンロードした JSON です。<a href="#google-client">手順 3</a> でクライアントを作り直し、作成直後の画面でダウンロードしてください。</td></tr>
+        <tr><td>連携すると「クライアントが Google に受け付けられませんでした」と出る</td><td>Google Cloud でクライアントを削除した・別のプロジェクトのものを読み込んだ可能性があります。<a href="#google-client">手順 3</a>・<a href="#google-import">手順 4</a> をやり直してください。</td></tr>
+        <tr><td>連携のときに「アクセスをブロック」「このアプリは現在テスト中です」などと出る</td><td><a href="#google-consent">手順 2</a> で、同意画面が「本番環境」に公開されているか、通知を受け取りたいアカウントで作ったプロジェクトかを確認してください。</td></tr>
+        <tr><td>「必要な権限がすべて許可されませんでした」と出る</td><td><a href="#google-link">手順 5</a> で、すべての項目にチェックを入れて連携し直してください。</td></tr>
+        <tr><td>7日ほどで「連携の有効期限が切れました」と出る</td><td><a href="#google-consent">手順 2</a> で、同意画面が「テスト」のままになっています。「本番環境」に公開してから連携し直してください。</td></tr>
         <tr><td>通知が来ない</td><td>設定画面で「連携中」になっているか確認してください。重要メールは最大約1分、予定・TODO は更新から最大約5分で取り込まれます。</td></tr>
         <tr><td>「VOICEVOX未検出」と出る／読み上げされない</td><td>VOICEVOX を起動して「再確認」を押してください。ミュート中・ボイス音量0%のときも読み上げません。</td></tr>
         <tr><td>読み上げが遅い・途中から読まれない</td><td>VOICEVOX の GPU 版をお使いください（<a href="#voicevox">3</a> の手順1）。1件の準備に20秒以上かかる場合は読み上げを省略します。</td></tr>
@@ -339,7 +343,7 @@
       <li><strong>EmoteLab</strong>：キャラクター画像を <a href="https://emotelab.app/" target="_blank" rel="noopener">EmoteLab</a> で作成した場合は、EmoteLab を使用した旨のクレジット表記が必要です（<a href="https://emotelab.app/eula/" target="_blank" rel="noopener">EmoteLab EULA</a>）。EmoteLab 本体は本アプリに含まれません。</li>
     </ul>
 
-    <footer>おしらせメイト 共有版 セットアップ手順書</footer>
+    <footer>おしらせメイト セットアップ手順書</footer>
   </main>
 </div>
 

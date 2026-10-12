@@ -380,6 +380,9 @@ export function getSettingsWindow() {
   return settingsWindow;
 }
 
+/** 設定ウィンドウの内容の大きさ（DIP） */
+const SETTINGS_SIZE = { width: 1000, height: 660 };
+
 /** 設定ウィンドウを開く。既に開いていれば前面に出すだけ（シングルトン）。 */
 export function openSettingsWindow() {
   if (settingsWindow) {
@@ -389,9 +392,12 @@ export function openSettingsWindow() {
     return settingsWindow;
   }
 
+  // 1 画面ですべて見えるよう横長にして 2 列で並べる（v5.15）。作業領域より高くはしない（低い画面では列の中だけスクロールする）
+  const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   const win = new BrowserWindow({
-    width: 420,
-    height: 760,
+    width: Math.min(SETTINGS_SIZE.width, workArea.width),
+    height: Math.min(SETTINGS_SIZE.height, workArea.height - 40),
+    useContentSize: true,
     show: false,
     title: '設定',
     resizable: false,
