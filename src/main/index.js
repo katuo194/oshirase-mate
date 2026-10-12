@@ -108,10 +108,13 @@ let idleTalk = null;
 /** 取り込んだキャラクター（F-17。userData/characters） */
 let characters = null;
 /**
- * 選択中のキャラクターの声とキャラクター設定（v5.9）。applyCharacter が更新する。
- * 声は通知・アイドルトーク・チャットのすべての読み上げに、キャラクター設定はチャットの人格に使う
+ * 選択中のキャラクターの声・キャラクター設定（v5.9）・セリフ（F-22）。applyCharacter が更新する。
+ * 声は通知・アイドルトーク・チャットのすべての読み上げに、キャラクター設定はチャットの人格に、
+ * セリフは通知の読み上げ文とアイドルトークの文に使う（phrasePicker を作り直す）
  */
-let activeCharacter = { id: 'default', builtin: true, displayName: '', voice: null, persona: '' };
+let activeCharacter = { id: 'default', builtin: true, displayName: '', voice: null, persona: '', lines: null };
+/** 選択中のキャラクターのセリフから文を選ぶ（シャッフル袋）。キャラクターを反映するたびに作り直す */
+let phrasePicker = createPhrasePicker();
 
 /** 実際に使う VOICEVOX の声：選択中のキャラクターの声、未設定なら config.json の voicevox（6.1） */
 const effectiveVoiceConfig = () => resolveVoiceConfig(activeCharacter.voice, getVoicevoxConfig());
@@ -459,8 +462,10 @@ async function applyCharacter(log) {
 
   const before = effectiveVoiceConfig();
   activeCharacter = manifest
-    ? { id: manifest.id, builtin: false, displayName: manifest.displayName, voice: manifest.voice, persona: manifest.persona }
+    ? { id: manifest.id, builtin: false, displayName: manifest.displayName, voice: manifest.voice, persona: manifest.persona, lines: manifest.lines }
     : { id: DEFAULT_CHARACTER_ID, builtin: true, displayName: '', ...defaultProfile };
+  // セリフ（F-22）：設定の無い種類は今の固定文。袋は作り直す（前のキャラクターの文を引き継がない）
+  phrasePicker = createPhrasePicker({ lines: activeCharacter.lines });
   mascot?.setCharacter(buildCharacterView(manifest));
 
   // 起動時と声が変わったときは、接続状態（設定画面のクレジット表記「VOICEVOX:話者名」）を確かめ直し、
@@ -573,11 +578,13 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
     },
     // アイドルトーク表示中に通知が来たら、絞って終わらせる（通知が常に優先：v5.8）
     abort: (presentation) => mascot.abort(presentation.id),
+    // 読み上げ文は選択中のキャラクターのセリフから選ぶ（F-22。通常の表示と F-21 の再表示の両方）
+    getSpeechOptions: () => ({ pickLine: (kind, accept) => phrasePicker.pickNotify(kind, accept) }),
     log,
   });
 
   // アイドルトーク（F-15）。トリガー判定は idleTalk.js（依存注入・ユニットテスト済み）。表示は presenter.showIdle（通知が優先）
-  const phrasePicker = createPhrasePicker();
+  // 文は選択中のキャラクターのセリフ（F-22。phrasePicker は applyCharacter が作り直す）
   let idleSeq = 0;
   idleTalk = createIdleTalk({
     getConfig: getIdleTalkConfig,

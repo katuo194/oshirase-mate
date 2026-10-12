@@ -205,3 +205,42 @@ textarea {
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* セリフ（F-22）：初めは閉じた <details> */
+.lines {
+  margin: 20px 0 0;
+}
+.lines summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: #555555;
+  border-bottom: 1px solid #dddddd;
+  padding-bottom: 4px;
+}
+.lines h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: #555555;
+}
+.line-field {
+  margin: 10px 0;
+}
+.line-field label {
+  display: block;
+  margin-bottom: 2px;
+}
+.line-field textarea::placeholder {
+  color: #aaaaaa;
+}
+.line-field textarea.error {
+  outline: 2px solid #c0392b;
+}
+.line-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.line-foot .hint {
+  margin: 2px 0 0;
+}

@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
 import { DEFAULT_CHARACTER_ID, SLOT_NAMES, characterFrameUrl, describeImportError, isValidCharacterId } from './characterImport.js';
+import { isLinesError, linesGuide } from './characterLines.js';
 import { externalUrlFor } from './externalLinks.js';
 
 /** 既定キャラクターの表示名（選択画面・編集画面） */
@@ -412,18 +413,21 @@ export function registerCharacterIpc({
   /**
    * 画面を開いたとき。前回選んだフォルダを忘れ、モード（作成／編集）と編集対象の今の値を返す。
    * 声の欄は版によらず常に出す（v5.11。話者を選べるかは characterCreate:list-speakers の available で決まる）。
-   * @returns {{ mode: 'create' } |
-   *   { mode: 'edit', character: { id, displayName, builtin, slots, voice, persona } } |
+   * linesGuide はセリフ欄（F-22）の案内（種類ごとの既定の文・使える差し込み・上限）。
+   * @returns {{ mode: 'create', linesGuide } |
+   *   { mode: 'edit', linesGuide, character: { id, displayName, builtin, slots, voice, persona, lines } } |
    *   { mode: 'missing' }}
    */
   ipcMain.handle('characterCreate:begin', async (e, editId) => {
     guardCreate(e);
     picked = {};
-    if (typeof editId !== 'string' || editId === '') return { mode: 'create' };
+    const guide = linesGuide();
+    if (typeof editId !== 'string' || editId === '') return { mode: 'create', linesGuide: guide };
     if (editId === DEFAULT_CHARACTER_ID) {
       const profile = await repository.getDefaultProfile();
       return {
         mode: 'edit',
+        linesGuide: guide,
         character: { id: DEFAULT_CHARACTER_ID, displayName: DEFAULT_CHARACTER_NAME, builtin: true, slots: {}, ...profile },
       };
     }
@@ -431,7 +435,8 @@ export function registerCharacterIpc({
     if (!m) return { mode: 'missing' };
     return {
       mode: 'edit',
-      character: { id: m.id, displayName: m.displayName, builtin: false, slots: m.slots, voice: m.voice, persona: m.persona },
+      linesGuide: guide,
+      character: { id: m.id, displayName: m.displayName, builtin: false, slots: m.slots, voice: m.voice, persona: m.persona, lines: m.lines },
     };
   });
 
@@ -469,6 +474,15 @@ export function registerCharacterIpc({
    * VOICEVOX が未起動で話者を選べないときも、画面は保存済みの値をそのまま送り返す（v5.9：保存済みの値は残す）
    */
   const voiceInput = (req) => (req && 'voice' in req ? (req.voice ?? null) : undefined);
+  /** 画面から来たセリフ（F-22）。voice と同じく undefined は「今の値のまま」、null は「設定なし」 */
+  const linesInput = (req) => (req && 'lines' in req ? (req.lines ?? null) : undefined);
+
+  /** 失敗の応答。セリフのエラーなら、画面が該当の欄を示せるように field（'notify.calendar' など）を付ける */
+  const failure = (error) => ({
+    ok: false,
+    message: describeImportError(error),
+    ...(isLinesError(error) && error.group && error.kind ? { field: `${error.group}.${error.kind}` } : {}),
+  });
 
   ipcMain.handle('characterCreate:import', async (e, req) => {
     guardCreate(e);
@@ -480,8 +494,9 @@ export function registerCharacterIpc({
       slots,
       voice: voiceInput(req) ?? null,
       persona: req?.persona,
+      lines: linesInput(req) ?? null,
     });
-    if (!result.ok) return { ok: false, message: describeImportError(result.error) };
+    if (!result.ok) return failure(result.error);
     picked = {};
     await broadcast();
     return { ok: true, id: result.manifest.id, displayName: result.manifest.displayName };
@@ -489,17 +504,22 @@ export function registerCharacterIpc({
 
   /**
    * 編集の保存。req.slots の各値：'keep'（今の画像のまま）／'picked'（選び直したフォルダ）／'none'（任意スロットの解除）。
-   * 既定キャラクターは声とキャラクター設定だけを保存する。
+   * 既定キャラクターは声・キャラクター設定・セリフだけを保存する。
    */
   ipcMain.handle('characterCreate:save', async (e, id, req) => {
     guardCreate(e);
     if (id === DEFAULT_CHARACTER_ID) {
       const current = await repository.getDefaultProfile();
       const voice = voiceInput(req);
-      const result = await repository.saveDefaultProfile({ voice: voice === undefined ? current.voice : voice, persona: req?.persona });
-      if (!result.ok) return { ok: false, message: describeImportError(result.error) };
+      const lines = linesInput(req);
+      const result = await repository.saveDefaultProfile({
+        voice: voice === undefined ? current.voice : voice,
+        persona: req?.persona,
+        lines: lines === undefined ? current.lines : lines,
+      });
+      if (!result.ok) return failure(result.error);
       onCharacterUpdated(DEFAULT_CHARACTER_ID);
-      return { ok: true, displayName: DEFAULT_CHARACTER_NAME };
+      return { ok: true, displayName: DEFAULT_CHARACTER_NAME, lines: result.profile.lines };
     }
     const current = await repository.get(id);
     if (!current) return { ok: false, message: describeImportError({ code: 'not_found' }) };
@@ -511,17 +531,19 @@ export function registerCharacterIpc({
       else if (states[s] === 'picked' && picked[s]) slots[s] = { dir: picked[s].dir, fps: fps[s] };
     }
     const voice = voiceInput(req);
+    const lines = linesInput(req);
     const result = await repository.updateCharacter(id, {
       displayName: req?.displayName,
       slots,
       voice: voice === undefined ? current.voice : voice,
       persona: req?.persona,
+      lines: lines === undefined ? current.lines : lines,
     });
-    if (!result.ok) return { ok: false, message: describeImportError(result.error) };
+    if (!result.ok) return failure(result.error);
     picked = {};
     await broadcast();
     onCharacterUpdated(id);
-    return { ok: true, displayName: result.manifest.displayName, slots: result.manifest.slots };
+    return { ok: true, displayName: result.manifest.displayName, slots: result.manifest.slots, lines: result.manifest.lines };
   });
 
   ipcMain.handle('characterCreate:list', (e) => {

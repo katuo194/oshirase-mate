@@ -16,7 +16,7 @@ const mail = (id) => ({
 const mailId = (id) => makeNotificationId(SOURCES.GMAIL, id);
 const idle = (n = 1) => idlePresentation({ id: `idle:${n}`, text: 'ふわぁ…ちょっとぼーっとしちゃった。' });
 
-function setup({ ready = true } = {}) {
+function setup({ ready = true, getSpeechOptions } = {}) {
   const store = { load: vi.fn(async () => ({})), save: vi.fn(async (n) => n) };
   const notifyQueue = createNotifyQueue({ store, now: () => NOW, log: { info() {}, warn() {} } });
   const shown = [];
@@ -27,6 +27,7 @@ function setup({ ready = true } = {}) {
     abort: (p) => aborted.push(p.id),
     now: () => Date.now(),
     log: { info: vi.fn(), warn: vi.fn() },
+    ...(getSpeechOptions ? { getSpeechOptions } : {}),
   });
   presenter.start();
   if (ready) presenter.setRendererReady(true);
@@ -159,5 +160,46 @@ describe('notificationPresenter / 直前のお知らせの再表示（replayLast
     vi.setSystemTime(NOW + 7 * 60000);
     t.presenter.replayLast();
     expect(t.shown.at(-1).presentation.sub).toContain('3分後');
+  });
+});
+
+describe('notificationPresenter / キャラクターのセリフ（F-22）', () => {
+  it('通常の表示と再表示の両方で、そのとき選択中のキャラクターのセリフを使う', () => {
+    let lines = { gmail: ['{from}さんからだよ。{title}'] };
+    const t = setup({ getSpeechOptions: () => ({ lines }) });
+    showAndFinish(t, mail('m1'));
+    expect(t.shown[0].presentation.speech).toBe('田中さんからだよ。件名m1');
+
+    t.presenter.replayLast();
+    expect(t.shown.at(-1).presentation.speech).toBe('田中さんからだよ。件名m1');
+    t.presenter.done(`replay:${mailId('m1')}:1`);
+
+    // キャラクターを切り替えたら、再表示もそのキャラクターのセリフになる
+    lines = { gmail: ['メールが来たよ。{title}'] };
+    t.presenter.replayLast();
+    expect(t.shown.at(-1).presentation.speech).toBe('メールが来たよ。件名m1');
+  });
+
+  it('文の選び方（pickLine）を渡すと、表示のたびにそれで選ぶ', () => {
+    const picked = [];
+    const pickLine = (kind, accept) => {
+      picked.push(kind);
+      return accept('{from}さん{title}') ? `${picked.length}回目{title}` : null;
+    };
+    const t = setup({ getSpeechOptions: () => ({ pickLine }) });
+    showAndFinish(t, mail('m1'));
+    t.presenter.replayLast();
+    expect(t.shown.map((s) => s.presentation.speech)).toEqual(['1回目件名m1', '2回目件名m1']);
+    expect(picked).toEqual(['gmail', 'gmail']);
+  });
+
+  it('セリフの取得に失敗しても既定の文で表示する', () => {
+    const t = setup({
+      getSpeechOptions: () => {
+        throw new Error('boom');
+      },
+    });
+    showAndFinish(t, mail('m1'));
+    expect(t.shown[0].presentation.speech).toBe('田中さんから重要なメールです。件名m1');
   });
 });

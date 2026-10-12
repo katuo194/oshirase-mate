@@ -7,6 +7,11 @@
 // レンダラーはここで決めた params / timing をそのまま描画するだけ（Canvas 手続き描画。素材が用意できたら
 // character.js の描画を drawImage に差し替える。ここで決める kind / motion 名は素材のクリップ選択にも使える）。
 // 種別（kind）は通知の source と同じ文字列：'calendar' | 'tasks' | 'gmail'。
+//
+// 読み上げ文（speech）はキャラクターのセリフ（F-22・characterLines.js）から作る。セリフを渡さなければ今の固定文と同じ。
+// 吹き出し（ラベル・主題・副題）はセリフによらず今のまま。
+
+import { DEFAULT_NOTIFY_LINES, FALLBACK_NOTIFY_LINES, SPEECH_MAX, SPOKEN_TODO, isUsableLine, renderSpeech, toSpoken } from './characterLines.js';
 
 const TITLE_MAX = 120;
 const SUB_MAX = 80;
@@ -30,10 +35,8 @@ export const MAX_VOICE_HOLD_MS = 20000;
 /** 効果音の終わりから読み上げを始めるまでの間。効果音の終了が分からない場合は表示開始から VOICE_GATE_MAX_MS で解禁する */
 export const VOICE_AFTER_SFX_MS = 200;
 export const VOICE_GATE_MAX_MS = 1500;
-/** 「TODO」の読み（VOICEVOX に渡す表記。実機で「TODO」のままだと発音が崩れた） */
-export const SPOKEN_TODO = 'トゥードゥー';
-/** 読み上げ文の最大長（1件の読み上げを長くしすぎない） */
-export const SPEECH_MAX = 50;
+/** 「TODO」の読み（SPOKEN_TODO）と読み上げ文の最大長（SPEECH_MAX）は、セリフの展開（characterLines.js）と共有する */
+export { SPEECH_MAX, SPOKEN_TODO };
 
 /**
  * 種別ごとの見た目（F-11）。motion 名は renderer/mascot/character.js が解釈する。
@@ -120,35 +123,53 @@ function spokenTime(ms) {
 }
 
 /**
- * 読み上げる文（F-13）。吹き出しより短く、耳で聞いて分かる形にする。最大 SPEECH_MAX 文字。
- * @param {{ source: string, title?: string, body?: string, data?: object }} notification
- * @returns {string | null} 読み上げるものが無ければ null
+ * 通知 → セリフの種類（characterLines.js の notify のキー）と差し込みの値。種類の無い通知（未知の source）は kind: null。
+ * @returns {{ kind: string | null, values: { title: string, time: string, from: string } }}
  */
-export function toSpeechText(notification) {
+export function speechSlots(notification) {
   const title = (notification.title ?? '').trim();
   const data = notification.data ?? {};
-  let text;
+  const values = { title, time: '', from: '' };
   switch (notification.source) {
     case 'calendar':
-      if (data.allDay === true) text = `今日の予定です。${title}`;
-      else if (Number.isFinite(data.startAt)) text = `予定のお知らせです。${spokenTime(data.startAt)}から、${title}`;
-      else text = `予定のお知らせです。${title}`;
-      break;
+      if (data.allDay === true) return { kind: 'calendarAllDay', values };
+      if (Number.isFinite(data.startAt)) values.time = spokenTime(data.startAt);
+      return { kind: 'calendar', values };
     case 'tasks':
-      text = `${SPOKEN_TODO}の期限です。${title}`;
-      break;
-    case 'gmail': {
-      const from = (notification.body ?? '').trim();
-      text = from ? `${from}さんから重要なメールです。${title}` : `重要なメールです。${title}`;
-      break;
-    }
+      return { kind: 'tasks', values };
+    case 'gmail':
+      values.from = (notification.body ?? '').trim();
+      return { kind: 'gmail', values };
     default:
-      text = title;
+      return { kind: null, values };
   }
-  // VOICEVOX は「TODO」をうまく読めないため、件名に含まれる分も含めて読みに置き換える（吹き出しの表記はそのまま）
-  text = text.replace(/\bto-?do\b/gi, SPOKEN_TODO).trim(); // TODO / ToDo / To-Do（英文の "to do" は対象外）
-  if (text === '') return null;
-  return text.length > SPEECH_MAX ? text.slice(0, SPEECH_MAX) : text;
+}
+
+/**
+ * 読み上げる文（F-13・F-22）。吹き出しより短く、耳で聞いて分かる形にする。最大 SPEECH_MAX 文字（長いときは件名の側を切り詰める）。
+ * セリフは、差し込みの値が空になる文（差出人が無いのに {from} を含むなど）を避けて選び、使える文が無ければ既定の文
+ * （FALLBACK_NOTIFY_LINES）を使う。何も渡さなければ今の固定文と同じ結果になる。
+ * @param {{ source: string, title?: string, body?: string, data?: object }} notification
+ * @param {object} [opts]
+ * @param {Record<string, readonly string[]>} [opts.lines] 種類 → セリフ（characterLines.effectiveLines().notify）。pickLine が無いときに使う（先頭の使える文）
+ * @param {(kind: string, accept: (line: string) => boolean) => string | null} [opts.pickLine]
+ *   文の選び方（phrasePicker.pickNotify。キャラクターのセリフをシャッフル袋で選ぶ）。accept を満たす文を返す。無ければ null
+ * @returns {string | null} 読み上げるものが無ければ null
+ */
+export function toSpeechText(notification, { lines = DEFAULT_NOTIFY_LINES, pickLine = null } = {}) {
+  const { kind, values } = speechSlots(notification);
+  let text;
+  if (kind === null) {
+    text = toSpoken(values.title).trim();
+    text = [...text].slice(0, SPEECH_MAX).join('');
+  } else {
+    const accept = (line) => isUsableLine(line, values);
+    const candidates = lines?.[kind]?.length > 0 ? lines[kind] : DEFAULT_NOTIFY_LINES[kind];
+    const line = (pickLine ? pickLine(kind, accept) : candidates.find(accept)) ?? FALLBACK_NOTIFY_LINES[kind];
+    // VOICEVOX は「TODO」をうまく読めないため、件名に含まれる分も含めて読みに置き換える（吹き出しの表記はそのまま）
+    text = renderSpeech(line, values, { max: SPEECH_MAX });
+  }
+  return text === '' ? null : text;
 }
 
 const timingFor = (holdMs) => ({
@@ -167,6 +188,8 @@ const timingFor = (holdMs) => ({
  * @param {object} [opts]
  * @param {number} [opts.now] 現在時刻（ms）
  * @param {number} [opts.backlog] 表示待ちの後続通知の件数
+ * @param {Record<string, readonly string[]>} [opts.lines] 読み上げのセリフ（toSpeechText）
+ * @param {(kind: string, accept: (line: string) => boolean) => string | null} [opts.pickLine] セリフの選び方（toSpeechText）
  * @returns {{
  *   id: string, kind: string, label: string, title: string, sub: string,
  *   params: { accent: string, tint: string, mouth: string, burst: string, loop: string },
@@ -175,7 +198,7 @@ const timingFor = (holdMs) => ({
  *   speech: string | null,
  * }}
  */
-export function toPresentation(notification, { now = Date.now(), backlog = 0 } = {}) {
+export function toPresentation(notification, { now = Date.now(), backlog = 0, lines, pickLine } = {}) {
   const def = KINDS[notification.source] ?? FALLBACK;
   const n = { ...notification, data: notification.data ?? {} };
 
@@ -194,7 +217,7 @@ export function toPresentation(notification, { now = Date.now(), backlog = 0 } =
     params: { ...def.params },
     timing: timingFor(holdMs),
     sfxKey: notification.source in KINDS ? notification.source : 'default',
-    speech: toSpeechText(n),
+    speech: toSpeechText(n, { lines, pickLine }),
   };
 }
 
@@ -235,7 +258,8 @@ export function idlePresentation({ id, text }) {
     params: { accent: '#c99a00', tint: '#c99a00', mouth: 'smile', burst: 'none', loop: 'none' },
     timing: timingFor(IDLE_HOLD_MS),
     sfxKey: null,
-    speech: text.length > SPEECH_MAX ? text.slice(0, SPEECH_MAX) : text,
+    // キャラクターのセリフ（F-22）に「TODO」と書かれても読めるように、通知と同じく読みに置き換える
+    speech: [...toSpoken(text)].slice(0, SPEECH_MAX).join(''),
   };
 }
 
