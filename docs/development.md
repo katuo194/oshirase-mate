@@ -44,6 +44,8 @@ New-Item -ItemType Directory -Force "$env:TEMP\mascot-shared" | Out-Null
 npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 は実行ポリシーで止まることがあるため .cmd を使う
 ```
 
+`--user-data-dir` を明示したときだけ、普段の保存先の固定（`src/main/pinUserDataDir.js`）をしません（要件定義書 v5.15）。起動ログの先頭が「起動（共有版）」になっていれば共有版です（ログは `$env:TEMP\mascot-shared\logs\`）。保存先が別なので、個人版を起動したままでも同時に起動できます。
+
 設定画面の「Google 連携の準備」（手順 1〜5）の各ボタンが開く Console のページは `src/main/googleConsoleLinks.js`、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL が変わったら、この表と手順書を直してください。
 
 ## 配布用のビルド（Windows・zip）

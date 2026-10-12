@@ -20,3 +20,16 @@ export const USER_DATA_DIR_NAMES = Object.freeze({
 export function userDataDirName(buildEdition) {
   return buildEdition === 'shared' ? USER_DATA_DIR_NAMES.shared : USER_DATA_DIR_NAMES.personal;
 }
+
+/**
+ * 固定する保存先フォルダ名。起動時に --user-data-dir が明示されていれば固定しない（null）：
+ * 開発中に共有版の動きを確かめるとき、個人版のデータと混ざらない専用のフォルダで起動するため（docs/development.md。v5.15）。
+ * 明示が無い普段の起動・配布版は userDataDirName のとおり。
+ * @param {object} opts
+ * @param {string | null} opts.buildEdition package.json の mascotEdition（開発時は null）
+ * @param {boolean} opts.hasUserDataDirSwitch 起動引数に --user-data-dir があるか
+ * @returns {string | null}
+ */
+export function userDataDirToPin({ buildEdition, hasUserDataDirSwitch }) {
+  return hasUserDataDirSwitch ? null : userDataDirName(buildEdition);
+}
