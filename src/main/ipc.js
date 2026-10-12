@@ -156,7 +156,7 @@ export function registerGeminiIpc({ getSettingsWindow, geminiKey }) {
 
 /**
  * 共有版の OAuth Client ID/Secret 用IPC（設定ウィンドウからのみ。2.4・3.6・F-18）。
- * レンダラーへ渡すのは状態（{ edition, userInput, configured, clientId, editable }）とエラー種別だけで、Secret は戻り値にもイベントにも載せない。
+ * レンダラーへ渡すのは状態（{ edition, userInput, configured, editable }）とエラー種別だけで、Secret も Client ID も戻り値・イベントに載せない（v5.15）。
  * - oauth:get-state   … 状態
  * - oauth:set         … { clientId, clientSecret } を検証して暗号化保存。{ ok, reason?, ...状態 }（個人版・連携中は拒否）
  * - oauth:clear       … 削除（個人版・連携中は拒否）

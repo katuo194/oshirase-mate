@@ -208,12 +208,13 @@ function renderOAuth(state) {
   if (!state.userInput) return;
   oauthEditable = state.editable === true;
   oauthConfigured = state.configured === true;
-  // 手順 4 の ✓ は保存済みのとき。保存済みの Client ID（非秘匿）は確認用に表示する
+  // 手順 4 の ✓ は保存済みのとき。Client ID も画面には表示しない（v5.15。状態にも含まれない）
   oauthStepImport.classList.toggle('done', oauthConfigured);
   oauthStatus.classList.toggle('linked', oauthConfigured);
-  oauthStatus.textContent = oauthConfigured ? `読み込み済み（Client ID：${state.clientId ?? ''}）` : 'まだ読み込んでいません。';
-  // 利用者が書き換え中の値は上書きしない
-  if (!oauthIdDirty) oauthClientId.value = oauthConfigured ? (state.clientId ?? '') : '';
+  oauthStatus.textContent = oauthConfigured ? '読み込み済みです。' : 'まだ読み込んでいません。';
+  // 利用者が書き換え中の値は消さない。保存・削除のあとは空に戻す
+  if (!oauthIdDirty) oauthClientId.value = '';
+  oauthClientId.placeholder = oauthConfigured ? '保存済み（変更するときだけ入力）' : '〜.apps.googleusercontent.com';
   oauthClientSecret.placeholder = oauthConfigured ? '保存済み（変更するときだけ入力）' : 'Client Secret を貼り付け';
   oauthClientId.disabled = !oauthEditable;
   oauthClientSecret.disabled = !oauthEditable;

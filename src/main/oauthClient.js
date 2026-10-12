@@ -1,6 +1,7 @@
 // 共有版の OAuth Client ID/Secret の管理（2.4・3.6・F-18。v5.11）。oauthClientStorage.js（暗号化保存）の上に、
-// 状態（保存済みか・Client ID・変更できるか）と変更イベント、auth への反映（auth.configure）を載せる。geminiKey.js と同じ構え。
-// Secret はこのモジュールの外へ出さない（auth へ渡すだけ。getState にもログにも含めない）。Client ID は非秘匿なので確認用に返す。
+// 状態（保存済みか・変更できるか）と変更イベント、auth への反映（auth.configure）を載せる。geminiKey.js と同じ構え。
+// Secret はこのモジュールの外へ出さない（auth へ渡すだけ。getState にもログにも含めない）。
+// Client ID も画面へは返さない（v5.15。非秘匿だが、画面に表示しないため渡す理由がない）。
 // 個人版では .env を使うため、保存・削除は受け付けない（edition.js の oauthSourceFor で判定）。
 // Phase 12（v5.15）で、Console からダウンロードした JSON（client_secret_〜.json）の読み込み（importFile）を追加した。保存の経路は set() と同じ。
 // Electron に依存しない：safeStorage とファイルは storage 側、JSON の読み込みは fs で注入される。
@@ -22,15 +23,14 @@ import { readOAuthClientFile } from './oauthClientFile.js';
 export function createOAuthClient({ edition, storage, auth, log = console, fs = nodeFs }) {
   const events = new EventEmitter();
   const userInput = oauthSourceFor(edition) === 'user';
-  /** 保存済みの Client ID（非秘匿）。未設定なら null */
-  let clientId = null;
+  /** Client ID/Secret が保存済みか */
+  let configured = false;
 
   const state = () => ({
     edition,
     // 設定画面の入力欄を出すか（共有版のみ）
     userInput,
-    configured: clientId !== null,
-    clientId,
+    configured,
     // 連携中・同意フロー中・確認中は変更できない（トークンは発行したクライアントに結び付く）
     editable: userInput && auth.canConfigure(),
   });
@@ -55,7 +55,7 @@ export function createOAuthClient({ edition, storage, auth, log = console, fs = 
       } catch (e) {
         log.warn(`[oauth] OAuth クライアントの設定を読み込めません: ${e?.code ?? e?.name ?? 'error'}`);
       }
-      clientId = saved?.clientId ?? null;
+      configured = Boolean(saved);
       auth.configure(saved ? { ok: true, ...saved } : { ok: false, reason: 'missing_client_id' });
       emit();
     },
@@ -78,7 +78,7 @@ export function createOAuthClient({ edition, storage, auth, log = console, fs = 
       }
       // 保存の間に連携が始まることは無い（unconfigured/unlinked から linking へは設定画面の操作だけ）が、念のため結果を見る
       if (!auth.configure(v)) return { ok: false, reason: 'linked' };
-      clientId = v.clientId;
+      configured = true;
       log.info('[oauth] OAuth クライアントの設定を保存しました');
       emit();
       return { ok: true };
@@ -112,7 +112,7 @@ export function createOAuthClient({ edition, storage, auth, log = console, fs = 
         return { ok: false, reason: 'save_failed' };
       }
       auth.configure({ ok: false, reason: 'missing_client_id' });
-      clientId = null;
+      configured = false;
       log.info('[oauth] OAuth クライアントの設定を削除しました');
       emit();
       return { ok: true };

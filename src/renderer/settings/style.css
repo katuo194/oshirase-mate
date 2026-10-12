@@ -10,17 +10,24 @@ body {
   color: #222222;
 }
 
-main {
-  padding: 16px 24px 24px;
+/* 1 画面ですべて見えるよう 2 列に並べる（v5.15）。画面が低いときは列の中だけスクロールする */
+main.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 0 20px;
 }
 
-h1 {
-  margin: 0 0 12px;
-  font-size: 18px;
+.col {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
 }
 
 h2 {
-  margin: 20px 0 8px;
+  margin: 14px 0 6px;
   font-size: 14px;
   color: #555555;
   border-bottom: 1px solid #dddddd;
@@ -32,7 +39,7 @@ h2 {
   grid-template-columns: 64px 1fr 44px;
   align-items: center;
   gap: 8px;
-  margin: 8px 0;
+  margin: 4px 0;
 }
 
 .row output {
@@ -44,7 +51,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 0;
+  margin: 6px 0;
   cursor: pointer;
 }
 
@@ -59,7 +66,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 8px 0;
+  margin: 5px 0;
 }
 
 .auth-status {
@@ -71,7 +78,7 @@ h2 {
 }
 
 .auth-actions button {
-  padding: 4px 14px;
+  padding: 3px 12px;
   font: inherit;
 }
 
@@ -134,8 +141,8 @@ h2 {
 .wizard .step {
   border: 1px solid #dddddd;
   border-radius: 6px;
-  padding: 8px 10px;
-  margin: 6px 0;
+  padding: 6px 10px;
+  margin: 5px 0;
 }
 
 .wizard .step.done {
@@ -181,15 +188,15 @@ h2 {
 
 .step-head button,
 .oauth-tools button {
-  padding: 4px 12px;
+  padding: 2px 12px;
   font: inherit;
 }
 
 .step-desc {
-  margin: 6px 0 0 30px;
+  margin: 2px 0 0 30px;
   font-size: 12px;
   color: #555555;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .step-desc.linked {
@@ -204,8 +211,8 @@ h2 {
 }
 
 .drop-zone {
-  margin: 6px 0 0 30px;
-  padding: 10px;
+  margin: 4px 0 0 30px;
+  padding: 6px;
   border: 2px dashed #b7c3cf;
   border-radius: 6px;
   color: #777777;
