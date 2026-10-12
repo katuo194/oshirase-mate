@@ -2,11 +2,14 @@
 // 状態（保存済みか・Client ID・変更できるか）と変更イベント、auth への反映（auth.configure）を載せる。geminiKey.js と同じ構え。
 // Secret はこのモジュールの外へ出さない（auth へ渡すだけ。getState にもログにも含めない）。Client ID は非秘匿なので確認用に返す。
 // 個人版では .env を使うため、保存・削除は受け付けない（edition.js の oauthSourceFor で判定）。
-// Electron に依存しない：safeStorage とファイルは storage 側で注入される。
+// Phase 12（v5.15）で、Console からダウンロードした JSON（client_secret_〜.json）の読み込み（importFile）を追加した。保存の経路は set() と同じ。
+// Electron に依存しない：safeStorage とファイルは storage 側、JSON の読み込みは fs で注入される。
 
 import { EventEmitter } from 'node:events';
+import nodeFs from 'node:fs/promises';
 import { validateOAuthClient } from './authCore.js';
 import { oauthSourceFor } from './edition.js';
+import { readOAuthClientFile } from './oauthClientFile.js';
 
 /**
  * @param {object} opts
@@ -14,8 +17,9 @@ import { oauthSourceFor } from './edition.js';
  * @param {ReturnType<import('./oauthClientStorage.js').createOAuthClientStorage>} opts.storage
  * @param {Pick<ReturnType<import('./auth.js').createAuth>, 'configure' | 'canConfigure' | 'events'>} opts.auth
  * @param {{ info: Function, warn: Function }} [opts.log]
+ * @param {Parameters<typeof readOAuthClientFile>[1]} [opts.fs] JSON の読み込み（既定は node:fs/promises）
  */
-export function createOAuthClient({ edition, storage, auth, log = console }) {
+export function createOAuthClient({ edition, storage, auth, log = console, fs = nodeFs }) {
   const events = new EventEmitter();
   const userInput = oauthSourceFor(edition) === 'user';
   /** 保存済みの Client ID（非秘匿）。未設定なら null */
@@ -36,7 +40,7 @@ export function createOAuthClient({ edition, storage, auth, log = console }) {
     if (userInput) emit();
   });
 
-  return {
+  const api = {
     events,
     getState: state,
 
@@ -80,6 +84,23 @@ export function createOAuthClient({ edition, storage, auth, log = console }) {
       return { ok: true };
     },
 
+    /**
+     * Console からダウンロードした JSON を読み込んで保存する（「Google 連携の準備」の手順 4）。読み込みはメインで行い、値は画面へ返さない。
+     * ログには理由だけを出す（ファイルの場所・中身は出さない）。
+     * @param {string} filePath
+     * @returns {Promise<{ ok: true } | { ok: false, reason: string }>}
+     */
+    async importFile(filePath) {
+      if (!userInput) return { ok: false, reason: 'not_shared' };
+      if (!auth.canConfigure()) return { ok: false, reason: 'linked' };
+      const parsed = await readOAuthClientFile(filePath, fs);
+      if (!parsed.ok) {
+        log.info(`[oauth] OAuth クライアントの JSON を読み込めません: ${parsed.reason}`);
+        return parsed;
+      }
+      return api.set(parsed);
+    },
+
     /** 保存済みの値を削除し、未設定に戻す（共有版・未連携のときだけ）。 */
     async clear() {
       if (!userInput) return { ok: false, reason: 'not_shared' };
@@ -97,4 +118,5 @@ export function createOAuthClient({ edition, storage, auth, log = console }) {
       return { ok: true };
     },
   };
+  return api;
 }

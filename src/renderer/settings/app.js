@@ -68,7 +68,7 @@ const authLink = document.getElementById('auth-link');
 const authCancel = document.getElementById('auth-cancel');
 const authUnlink = document.getElementById('auth-unlink');
 
-// 版ごとの文言（個人版は .env、共有版は上の OAuth クライアント欄：2.4・v5.11）。版は oauth:get-state で受け取る
+// 版ごとの文言（個人版は .env、共有版は上の「Google 連携の準備」：2.4・v5.11）。版は oauth:get-state で受け取る（画面には版の名前を出さない）
 let edition = 'personal';
 
 const CONFIG_PROBLEMS = {
@@ -78,7 +78,7 @@ const CONFIG_PROBLEMS = {
 };
 
 function configProblemText(auth) {
-  if (edition === 'shared') return '上の「OAuth クライアント」に Client ID と Client Secret を入力して保存してください。';
+  if (edition === 'shared') return '上の「Google 連携の準備」の手順 1〜4 を済ませてください。';
   return `${CONFIG_PROBLEMS[auth.configProblem] ?? ''} .env.example を参考に .env を作成し、アプリを再起動してください。`;
 }
 
@@ -116,12 +116,13 @@ function renderAuth(auth) {
       ? configProblemText(auth)
       : auth.lastError === 'invalid_client'
         ? edition === 'shared'
-          ? 'Client ID / Secret が Google に受け付けられませんでした。上の「OAuth クライアント」に入力した値を確認してください。'
+          ? 'クライアントが Google に受け付けられませんでした。Google Cloud でクライアントを削除していないか確認し、上の「Google 連携の準備」の手順 3・4 をやり直してください。'
           : 'Client ID / Secret が Google に受け付けられませんでした。.env の値を確認してください。'
         : (AUTH_ERRORS[auth.lastError] ?? '');
   authDetail.textContent = detail;
   authDetail.hidden = detail === '';
   authDetail.classList.toggle('error', status === 'unconfigured' || Boolean(auth.lastError));
+  renderWizardLink(status);
 }
 
 authLink.addEventListener('click', async () => renderAuth(await window.authApi.link()));
@@ -130,11 +131,17 @@ authUnlink.addEventListener('click', async () => renderAuth(await window.authApi
 
 window.authApi.onChanged(renderAuth);
 
-// ---- OAuth クライアント（共有版のみ。2.4・3.6・F-18）----
-// 値はメインへ送るだけ。保存後は Secret 欄を空に戻し、Secret はこの画面に二度と表示しない（受け取るのは Client ID と状態だけ）
+// ---- Google 連携の準備（利用者が自分の OAuth クライアントを読み込む版だけ。2.4・3.6・F-18。Phase 12 でウィザードにした）----
+// 手順 1〜3 のボタンは手順の名前だけをメインへ送る（開くページはメインが決める）。手順 4 の JSON はメインが読み込み、値はこの画面を通らない。
+// 手動入力の Secret もメインへ送るだけで、保存後は欄を空に戻す（受け取るのは Client ID と状態だけ）
 const oauthSection = document.getElementById('oauth-section');
 const oauthStatus = document.getElementById('oauth-status');
 const oauthDetail = document.getElementById('oauth-detail');
+const oauthImport = document.getElementById('oauth-import');
+const oauthDrop = document.getElementById('oauth-drop');
+const oauthStepImport = document.getElementById('oauth-step-import');
+const oauthStepLink = document.getElementById('oauth-step-link');
+const oauthLink = document.getElementById('oauth-link');
 const oauthClientId = document.getElementById('oauth-client-id');
 const oauthClientSecret = document.getElementById('oauth-client-secret');
 const oauthSave = document.getElementById('oauth-save');
@@ -142,26 +149,43 @@ const oauthClear = document.getElementById('oauth-clear');
 const oauthManual = document.getElementById('oauth-manual');
 
 const OAUTH_ERRORS = {
+  // 手動入力
   missing_client_id: 'Client ID を入力してください。',
   missing_client_secret: 'Client Secret を入力してください。',
   invalid_client_id: 'Client ID の形式が正しくありません（〜.apps.googleusercontent.com で終わる値です）。',
   invalid_client_secret: 'Client Secret の形式が正しくありません（空白・改行・全角文字を含まない8〜256文字）。コピーし直してください。',
   swapped: 'Client Secret の欄に Client ID が入っています。欄を入れ替えていないか確認してください。',
+  // JSON の読み込み（oauthClientFile.js）
+  not_json: 'JSON ファイルではありません。手順 3 でダウンロードした「client_secret_〜.json」を選んでください。',
+  too_large: 'ファイルが大きすぎます。手順 3 でダウンロードした「client_secret_〜.json」を選んでください。',
+  web_client: 'このクライアントは種類が「ウェブ アプリケーション」です。手順 3 で、種類を「デスクトップ アプリ」にして作り直してください。',
+  not_client_file: 'OAuth クライアントの JSON ではありません。手順 3 でダウンロードした「client_secret_〜.json」を選んでください。',
+  missing_values:
+    'この JSON にはクライアント シークレットが入っていません。シークレットは作成直後の画面でダウンロードした JSON にだけ入っています。手順 3 でクライアントを作り直し、作成直後の画面で「JSON をダウンロード」を押してください。',
+  invalid_values: 'JSON の中の値の形式が正しくありません。手順 3 でダウンロードし直したファイルを読み込んでください。',
+  read_failed: 'ファイルを読み込めませんでした。',
+  // 共通
   linked: '連携中は変更できません。先に「連携解除」してから変更してください。',
   save_failed: '暗号化して保存できませんでした。',
   not_shared: 'この版では .env の値を使います。',
   manual_failed: 'セットアップ手順書を開けませんでした。アプリのフォルダにある「セットアップ手順書.html」を開いてください。',
+  console_failed: 'ブラウザを開けませんでした。',
 };
 const LOCKED_MESSAGE = '連携中は変更できません。変更するときは先に「連携解除」してください。';
 
 let oauthBusy = false;
 let oauthEditable = false;
+let oauthConfigured = false;
 /** Client ID 欄を利用者が書き換えたか（書き換え中は保存済みの値で上書きしない） */
 let oauthIdDirty = false;
+/** 連携の状態（手順 5 の表示）。renderAuth から受け取る */
+let wizardAuthStatus = null;
 
 function updateOAuthSave() {
   // 両方の欄が空でないときだけ保存できる（空文字での保存・連携の試行を防ぐ。検証はメインで行う）
   oauthSave.disabled = oauthBusy || !oauthEditable || oauthClientId.value.trim() === '' || oauthClientSecret.value.trim() === '';
+  oauthImport.disabled = oauthBusy || !oauthEditable;
+  oauthDrop.classList.toggle('disabled', oauthBusy || !oauthEditable);
 }
 
 function showOAuthError(reason) {
@@ -171,19 +195,30 @@ function showOAuthError(reason) {
   oauthDetail.classList.toggle('error', message !== '');
 }
 
+/** 手順 5（連携する）。✓ は連携中のとき。ボタンは下の「Googleアカウント連携」の「連携する」と同じ */
+function renderWizardLink(status) {
+  wizardAuthStatus = status;
+  oauthStepLink.classList.toggle('done', status === 'linked');
+  oauthLink.disabled = status !== 'unlinked';
+  oauthLink.textContent = status === 'linked' ? '連携中' : status === 'linking' ? '同意を待っています…' : '連携する';
+}
+
 function renderOAuth(state) {
   edition = state.edition;
   oauthSection.hidden = !state.userInput;
   if (!state.userInput) return;
   oauthEditable = state.editable === true;
-  oauthStatus.classList.toggle('linked', state.configured === true);
-  oauthStatus.textContent = state.configured ? '保存済み' : '未設定';
-  // 保存済みの Client ID（非秘匿）は確認用に表示する。利用者が書き換え中の値は上書きしない
-  if (!oauthIdDirty) oauthClientId.value = state.configured ? (state.clientId ?? '') : '';
-  oauthClientSecret.placeholder = state.configured ? '保存済み（変更するときだけ入力）' : 'Client Secret を貼り付け';
+  oauthConfigured = state.configured === true;
+  // 手順 4 の ✓ は保存済みのとき。保存済みの Client ID（非秘匿）は確認用に表示する
+  oauthStepImport.classList.toggle('done', oauthConfigured);
+  oauthStatus.classList.toggle('linked', oauthConfigured);
+  oauthStatus.textContent = oauthConfigured ? `読み込み済み（Client ID：${state.clientId ?? ''}）` : 'まだ読み込んでいません。';
+  // 利用者が書き換え中の値は上書きしない
+  if (!oauthIdDirty) oauthClientId.value = oauthConfigured ? (state.clientId ?? '') : '';
+  oauthClientSecret.placeholder = oauthConfigured ? '保存済み（変更するときだけ入力）' : 'Client Secret を貼り付け';
   oauthClientId.disabled = !oauthEditable;
   oauthClientSecret.disabled = !oauthEditable;
-  oauthClear.hidden = !state.configured;
+  oauthClear.hidden = !oauthConfigured;
   oauthClear.disabled = !oauthEditable;
   if (!oauthEditable) {
     oauthDetail.textContent = LOCKED_MESSAGE;
@@ -193,6 +228,25 @@ function renderOAuth(state) {
     showOAuthError(null);
   }
   updateOAuthSave();
+  if (wizardAuthStatus) renderWizardLink(wizardAuthStatus);
+}
+
+/** 保存・読み込み・削除の共通の後始末。成功したら Secret 欄を空に戻す */
+async function runOAuthAction(action) {
+  oauthBusy = true;
+  updateOAuthSave();
+  try {
+    const result = await action();
+    if (result.ok) {
+      oauthClientSecret.value = '';
+      oauthIdDirty = false;
+    }
+    if (!result.canceled) showOAuthError(result.ok ? null : result.reason);
+    renderOAuth(result);
+  } finally {
+    oauthBusy = false;
+    updateOAuthSave();
+  }
 }
 
 for (const input of [oauthClientId, oauthClientSecret]) {
@@ -205,33 +259,36 @@ for (const input of [oauthClientId, oauthClientSecret]) {
   });
 }
 
-async function saveOAuth() {
-  oauthBusy = true;
-  updateOAuthSave();
-  try {
-    const result = await window.oauthApi.set(oauthClientId.value, oauthClientSecret.value);
-    if (result.ok) {
-      oauthClientSecret.value = ''; // 保存できたら Secret を画面から消す
-      oauthIdDirty = false;
-    }
-    showOAuthError(result.ok ? null : result.reason);
-    renderOAuth(result);
-  } finally {
-    oauthBusy = false;
-    updateOAuthSave();
-  }
-}
+const saveOAuth = () => runOAuthAction(() => window.oauthApi.set(oauthClientId.value, oauthClientSecret.value));
 
 oauthSave.addEventListener('click', () => void saveOAuth());
-oauthClear.addEventListener('click', async () => {
-  const result = await window.oauthApi.clear();
-  if (result.ok) {
-    oauthClientSecret.value = '';
-    oauthIdDirty = false;
-  }
-  showOAuthError(result.ok ? null : result.reason);
-  renderOAuth(result);
+oauthClear.addEventListener('click', () => void runOAuthAction(() => window.oauthApi.clear()));
+oauthImport.addEventListener('click', () => void runOAuthAction(() => window.oauthApi.importFile()));
+
+// 手順 1〜3：Console のページを既定のブラウザで開く
+for (const button of document.querySelectorAll('[data-console]')) {
+  button.addEventListener('click', async () => {
+    const r = await window.oauthApi.openConsole(button.dataset.console);
+    if (!r.ok) showOAuthError('console_failed');
+  });
+}
+
+oauthLink.addEventListener('click', async () => renderAuth(await window.authApi.link()));
+
+// 手順 4：ドラッグ＆ドロップ。画面のどこに落としてもページが移動しないよう、文書全体で既定の動作を止める
+for (const type of ['dragover', 'drop']) {
+  document.addEventListener(type, (e) => e.preventDefault());
+}
+oauthDrop.addEventListener('dragenter', () => oauthDrop.classList.add('over'));
+oauthDrop.addEventListener('dragleave', () => oauthDrop.classList.remove('over'));
+oauthDrop.addEventListener('drop', (e) => {
+  oauthDrop.classList.remove('over');
+  if (oauthBusy || !oauthEditable) return;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  void runOAuthAction(() => window.oauthApi.importDropped(file));
 });
+
 oauthManual.addEventListener('click', async () => {
   const r = await window.oauthApi.openManual();
   if (!r.ok) showOAuthError('manual_failed');

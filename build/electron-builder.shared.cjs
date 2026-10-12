@@ -11,7 +11,7 @@ module.exports = {
   directories: { ...base.directories, output: 'dist/shared' },
   extraMetadata: { mascotEdition: 'shared' },
   extraFiles: [
-    { from: 'docs/shared-edition-setup.html', to: 'セットアップ手順書.html' },
+    { from: 'docs/setup-guide.html', to: 'セットアップ手順書.html' },
     { from: 'LICENSE', to: 'LICENSE.txt' },
   ],
   artifactName: 'oshirase-mate-shared-${version}-win-${arch}.${ext}',

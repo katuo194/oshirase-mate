@@ -228,6 +228,72 @@ describe('oauthClient（共有版の Client ID/Secret。2.4・3.6・F-18）', ()
   });
 });
 
+describe('oauthClient.importFile（Console からダウンロードした JSON の読み込み。Phase 12）', () => {
+  const MOCK_DIR = new URL('../mocks/google/', import.meta.url);
+  const DESKTOP_ID = '000000000000-dummydesktop.apps.googleusercontent.com';
+  const DESKTOP_SECRET = 'dummy-desktop-client-secret';
+  /** 見本の JSON を一時フォルダへコピーする（Console のダウンロードと同じ名前） */
+  async function placeMock(name, as = 'client_secret_000000000000-dummydesktop.apps.googleusercontent.com.json') {
+    const dest = path.join(dir, as);
+    await fs.copyFile(new URL(name, MOCK_DIR), dest);
+    return dest;
+  }
+
+  it('JSON を読み込んで暗号化保存し、再起動なしで auth に反映される（そのまま読み込んだクライアントで連携できる）', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_desktop.json'))).toEqual({ ok: true });
+    expect(ctx.oauthClient.getState()).toMatchObject({ configured: true, clientId: DESKTOP_ID, editable: true });
+    expect(await ctx.storage.load()).toEqual({ clientId: DESKTOP_ID, clientSecret: DESKTOP_SECRET });
+    expect(ctx.auth.getState()).toEqual({ status: 'unlinked', lastError: null });
+    expect(ctx.states.at(-1)).toMatchObject({ configured: true });
+
+    const done = ctx.auth.link();
+    await vi.waitFor(() => expect(ctx.opened).toHaveLength(1));
+    expect(new URL(ctx.opened[0]).searchParams.get('client_id')).toBe(DESKTOP_ID); // .env の値ではない
+    ctx.auth.cancel();
+    await done;
+  });
+
+  it('読み込めない JSON は保存せず理由を返す（auth も変えない）', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_web.json', 'web.json'))).toEqual({ ok: false, reason: 'web_client' });
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_no_secret.json', 'no-secret.json'))).toEqual({ ok: false, reason: 'missing_values' });
+    expect(await ctx.oauthClient.importFile(path.join(dir, 'missing.json'))).toEqual({ ok: false, reason: 'read_failed' });
+    expect(await ctx.storage.load()).toBeNull();
+    expect(ctx.auth.getState().status).toBe('unconfigured');
+  });
+
+  it('連携中は読み込まない（linked）', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    await ctx.oauthClient.set(CLIENT);
+    await link(ctx);
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_desktop.json'))).toEqual({ ok: false, reason: 'linked' });
+    expect(await ctx.storage.load()).toEqual(CLIENT);
+  });
+
+  it('個人版では読み込まない（not_shared）', async () => {
+    const ctx = setup({ edition: 'personal' });
+    await ctx.oauthClient.init();
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_desktop.json'))).toEqual({ ok: false, reason: 'not_shared' });
+    expect(await ctx.storage.load()).toBeNull();
+  });
+
+  it('状態・イベント・ログに Secret もファイルの場所も含めない', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    const file = await placeMock('client_secret_desktop.json');
+    await ctx.oauthClient.importFile(file);
+    await ctx.oauthClient.importFile(await placeMock('client_secret_web.json', 'web.json'));
+    const everything = JSON.stringify([ctx.oauthClient.getState(), ctx.states, ctx.log.info.mock.calls, ctx.log.warn.mock.calls]);
+    expect(everything).not.toContain(DESKTOP_SECRET);
+    expect(everything).not.toContain('dummy-web-client-secret');
+    expect(everything).not.toContain(path.basename(dir));
+  });
+});
+
 describe('oauthClient / 個人版（.env を使う）', () => {
   it('入力欄を出さず、保存・削除を受け付けない。init は保存ファイルを読まず、.env の設定を変えない', async () => {
     await setup().storage.save(CLIENT); // 共有版で保存したファイルがあっても

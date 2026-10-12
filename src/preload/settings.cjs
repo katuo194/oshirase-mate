@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('settingsApi', {
   get: () => ipcRenderer.invoke('settings:get'),
@@ -60,6 +60,20 @@ contextBridge.exposeInMainWorld('oauthApi', {
   set: (clientId, clientSecret) => ipcRenderer.invoke('oauth:set', { clientId: String(clientId), clientSecret: String(clientSecret) }),
   clear: () => ipcRenderer.invoke('oauth:clear'),
   openManual: () => ipcRenderer.invoke('oauth:open-manual'),
+  // 「Google 連携の準備」（Phase 12）。JSON の読み込みはメインで行い、中身は画面を通らない
+  importFile: () => ipcRenderer.invoke('oauth:import-file'),
+  // ドロップされたファイルは場所だけをメインへ送る（webUtils.getPathForFile。File.path は Electron 32 で廃止）
+  importDropped: (file) => {
+    let filePath = '';
+    try {
+      filePath = webUtils.getPathForFile(file);
+    } catch {
+      // File でないものが渡された
+    }
+    return ipcRenderer.invoke('oauth:import-path', filePath);
+  },
+  // 手順の名前（apis / branding / audience / client）だけを送る。URL はメインが決める
+  openConsole: (step) => ipcRenderer.invoke('oauth:open-console', String(step)),
   onChanged: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('oauth:changed', listener);

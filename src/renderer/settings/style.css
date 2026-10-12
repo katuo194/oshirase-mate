@@ -123,3 +123,119 @@ h2 {
   padding: 4px 14px;
   font: inherit;
 }
+
+/* ---- Google 連携の準備（Phase 12 のウィザード）---- */
+.wizard {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+
+.wizard .step {
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+}
+
+.wizard .step.done {
+  border-color: #a6d8b4;
+  background: #f3faf5;
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-num {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0969da;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 済んだ手順は番号の代わりに ✓ */
+.step.done .step-num {
+  background: #1a7f37;
+  font-size: 0;
+}
+
+.step.done .step-num::after {
+  content: '✓';
+  font-size: 13px;
+}
+
+.step-title {
+  flex: 1;
+  font-weight: bold;
+}
+
+.step-head button,
+.oauth-tools button {
+  padding: 4px 12px;
+  font: inherit;
+}
+
+.step-desc {
+  margin: 6px 0 0 30px;
+  font-size: 12px;
+  color: #555555;
+  line-height: 1.6;
+}
+
+.step-desc.linked {
+  color: #1a7f37;
+  font-weight: bold;
+}
+
+.step-desc button.inline {
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.drop-zone {
+  margin: 6px 0 0 30px;
+  padding: 10px;
+  border: 2px dashed #b7c3cf;
+  border-radius: 6px;
+  color: #777777;
+  font-size: 12px;
+  text-align: center;
+}
+
+.drop-zone.over {
+  border-color: #0969da;
+  background: #ddf4ff;
+  color: #0969da;
+}
+
+.drop-zone.disabled {
+  opacity: 0.5;
+}
+
+.oauth-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.manual-entry {
+  margin: 8px 0;
+}
+
+.manual-entry summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #555555;
+}

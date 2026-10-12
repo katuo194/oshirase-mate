@@ -239,7 +239,7 @@ if (!app.requestSingleInstanceLock()) {
       openManual: async () => {
         const manual = app.isPackaged
           ? path.join(path.dirname(process.execPath), 'セットアップ手順書.html')
-          : path.join(app.getAppPath(), 'docs', 'shared-edition-setup.html');
+          : path.join(app.getAppPath(), 'docs', 'setup-guide.html');
         if (!fs.existsSync(manual)) {
           log.warn('[oauth] セットアップ手順書が見つかりません');
           return false;
@@ -249,6 +249,20 @@ if (!app.requestSingleInstanceLock()) {
           openExternal: (url) => (url.startsWith('https://') ? shell.openExternal(url) : Promise.resolve()),
         });
         return true;
+      },
+      // 「Google 連携の準備」の手順 4：Console からダウンロードした JSON を選ぶ（Phase 12）
+      pickClientFile: async (win) => {
+        const r = await dialog.showOpenDialog(win, {
+          title: 'ダウンロードした OAuth クライアントの JSON を選択',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+          properties: ['openFile'],
+        });
+        return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+      },
+      // 開くのは googleConsoleLinks.js の表にある Console のページだけ（ipc.js が手順の名前から URL を決める）
+      openExternal: async (url) => {
+        if (!url.startsWith('https://console.cloud.google.com/')) throw new Error('unexpected url');
+        await shell.openExternal(url);
       },
     });
 
