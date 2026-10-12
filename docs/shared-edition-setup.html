@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>おしらせメイト 共有版 セットアップ手順書</title>
+<!-- 共有版のセットアップ手順書（要件定義書 2.4・8章 Phase 9）。外部の読み込みを一切しない単体の HTML。
+     zip の中（実行ファイルと同じフォルダ）に同梱し、設定画面の「セットアップ手順を開く」でアプリ内のウィンドウに開く（https のリンクは既定のブラウザ）。単体でブラウザで開いても読める -->
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --line: #d1d9e0;
+    --panel: #f6f8fa;
+    --accent: #0969da;
+    --accent-bg: #ddf4ff;
+    --warn: #9a6700;
+    --warn-bg: #fff8c5;
+    --danger: #b42318;
+    --danger-bg: #ffebe9;
+    --ok: #1a7f37;
+    --code-bg: #eff1f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --line: #3d444d;
+      --panel: #151b23;
+      --accent: #4493f8;
+      --accent-bg: #0c2d6b;
+      --warn: #d29922;
+      --warn-bg: #3a2e05;
+      --danger: #f85149;
+      --danger-bg: #3d0e0c;
+      --ok: #3fb950;
+      --code-bg: #262c36;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Yu Gothic UI', 'Meiryo UI', 'Hiragino Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; max-width: 1120px; margin: 0 auto; padding: 32px 24px 80px; }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 14px; }
+  nav.toc h2 { font-size: 13px; color: var(--muted); margin: 0 0 8px; border: 0; padding: 0; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc li li { padding-left: 14px; }
+  nav.toc a { color: var(--fg); text-decoration: none; display: block; padding: 3px 8px; border-radius: 6px; }
+  nav.toc a:hover { background: var(--panel); color: var(--accent); }
+  main { min-width: 0; }
+  header.hero { margin-bottom: 28px; }
+  h1 { font-size: 28px; margin: 0 0 8px; line-height: 1.4; }
+  .lead { color: var(--muted); margin: 0; }
+  h2 { font-size: 22px; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 18px; margin: 32px 0 12px; }
+  a { color: var(--accent); }
+  p { margin: 12px 0; }
+  code, kbd {
+    font-family: 'Cascadia Mono', Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+  }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; background: var(--panel); }
+  strong { font-weight: 700; }
+  .ui { font-weight: 700; }
+  .ui::before { content: '「'; font-weight: 400; }
+  .ui::after { content: '」'; font-weight: 400; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 15px; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag.req { background: var(--danger-bg); color: var(--danger); }
+  .tag.opt { background: var(--panel); color: var(--muted); border: 1px solid var(--line); }
+
+  ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  ol.steps > li { counter-increment: step; position: relative; padding: 0 0 18px 48px; }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps > li:not(:last-child)::after {
+    content: ''; position: absolute; left: 14px; top: 34px; bottom: 4px; width: 2px; background: var(--line);
+  }
+  ol.steps ul { margin: 6px 0; padding-left: 20px; }
+
+  .note { border-left: 4px solid var(--accent); background: var(--accent-bg); padding: 10px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .note.warn { border-color: var(--warn); background: var(--warn-bg); }
+  .note.danger { border-color: var(--danger); background: var(--danger-bg); }
+  .note > :first-child { margin-top: 0; }
+  .note > :last-child { margin-bottom: 0; }
+  .note-title { font-weight: 700; display: block; margin-bottom: 2px; }
+
+  .copy-list { list-style: none; padding: 0; margin: 8px 0; }
+  .copy-list li { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .copy-list code { flex: 1; padding: 6px 10px; }
+  button.copy {
+    font: inherit; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+    border-radius: 6px; padding: 4px 12px; white-space: nowrap;
+  }
+  button.copy:hover { border-color: var(--accent); color: var(--accent); }
+  button.copy.done { color: var(--ok); border-color: var(--ok); }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; gap: 16px; padding: 20px 16px 60px; }
+    nav.toc { position: static; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  }
+  @media print {
+    nav.toc, button.copy { display: none; }
+    .layout { display: block; padding: 0; }
+    h2 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="目次">
+    <h2>目次</h2>
+    <ol>
+      <li><a href="#overview">はじめに</a></li>
+      <li><a href="#install">1. アプリの準備</a></li>
+      <li><a href="#google">2. Google との連携</a>
+        <ol>
+          <li><a href="#google-project">2-1. プロジェクト</a></li>
+          <li><a href="#google-api">2-2. API の有効化</a></li>
+          <li><a href="#google-consent">2-3. 同意画面</a></li>
+          <li><a href="#google-client">2-4. OAuth クライアント</a></li>
+          <li><a href="#google-link">2-5. 入力して連携</a></li>
+        </ol>
+      </li>
+      <li><a href="#voicevox">3. VOICEVOX（読み上げ）</a></li>
+      <li><a href="#gemini">4. Gemini API キー</a></li>
+      <li><a href="#trouble">5. 困ったとき</a></li>
+      <li><a href="#credits">クレジット</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero" id="overview">
+      <h1>おしらせメイト 共有版 セットアップ手順書</h1>
+      <p class="lead">デスクトップに常駐するマスコットが、Google カレンダー・Google Tasks・Gmail の通知を、アニメーション・効果音・読み上げで知らせるアプリです（Windows 11 専用）。</p>
+    </header>
+
+    <p>共有版では、Google と連携するための「OAuth クライアント」を<strong>自分の Google アカウントで作成</strong>し、アプリに入力してもらいます（開発者の資格情報は同梱していません）。所要時間は初回で20〜30分ほどです。</p>
+
+    <table>
+      <thead><tr><th>手順</th><th>内容</th><th>必要か</th></tr></thead>
+      <tbody>
+        <tr><td><a href="#install">1</a></td><td>アプリの準備（zip を展開して起動）</td><td><span class="tag req">必須</span></td></tr>
+        <tr><td><a href="#google">2</a></td><td>Google Cloud で OAuth クライアントを作成し、アプリに入力して連携</td><td><span class="tag req">通知を使うなら必須</span></td></tr>
+        <tr><td><a href="#voicevox">3</a></td><td>VOICEVOX のインストール（読み上げ）</td><td><span class="tag opt">任意</span></td></tr>
+        <tr><td><a href="#gemini">4</a></td><td>Gemini API キーの取得（チャット「話しかける」）</td><td><span class="tag opt">任意</span></td></tr>
+      </tbody>
+    </table>
+
+    <!-- ================================================================ -->
+    <h2 id="install">1. アプリの準備（zip の展開）</h2>
+    <p>インストーラーはありません。配布された zip（<code>oshirase-mate-shared-x.y.z-win-x64.zip</code>）を展開して、中の実行ファイルから起動します（管理者権限は不要です）。</p>
+
+    <ol class="steps">
+      <li>
+        <strong>（推奨）ブロックを解除する</strong><br />
+        zip を右クリック → <span class="ui">プロパティ</span> → 下の方の「セキュリティ：このファイルは他のコンピューターから取得したものです」の <span class="ui">許可する</span> にチェックを入れて <span class="ui">OK</span> を押します。
+        <ul><li>こうしておくと、展開したファイルを実行するときの警告が出なくなります。配布元に心当たりがない場合は行わないでください。</li></ul>
+      </li>
+      <li>
+        <strong>展開する</strong><br />
+        zip を右クリック → <span class="ui">すべて展開</span> で、置いておきたい場所（例：<code>ドキュメント\おしらせメイト</code>）に展開します。
+        <div class="note warn"><span class="note-title">展開した後にフォルダを移動すると、自動起動が効かなくなります</span>移動した場合は、設定画面の自動起動をいったんオフにしてからオンにし直してください。</div>
+      </li>
+      <li>
+        <strong>起動する</strong><br />
+        展開したフォルダの <code>おしらせメイト.exe</code> をダブルクリックします。
+        <ul>
+          <li>「Windows によって PC が保護されました」と表示された場合は、<span class="ui">詳細情報</span> → <span class="ui">実行</span> を押します（このアプリはコード署名をしていないため）。</li>
+        </ul>
+        <div class="note danger"><span class="note-title">「スマート アプリ コントロールによって…ブロックされました」と表示された場合</span>この PC では実行できません。スマート アプリ コントロールを無効にすると PC 全体の保護が弱まるため、この手順書では勧めません。配布元に相談してください。</div>
+      </li>
+      <li>
+        <strong>表示を確認する</strong><br />
+        マスコットが表示され、タスクトレイ（画面右下）にアイコンが出ます。
+        <ul>
+          <li>マスコットまたはトレイのアイコンを<strong>右クリック</strong>すると、メニュー（設定・キャラクター変更・ミュート・話しかける・終了）が開きます。</li>
+          <li>Windows へのログイン時に自動で起動したい場合は、設定画面の <span class="ui">Windowsにログインしたとき自動で起動する</span> をオンにします。</li>
+          <li>デスクトップやスタートメニューから起動したい場合は、設定画面の <span class="ui">ショートカット</span> 欄の <span class="ui">作成</span> を押します。以後はそのショートカットから起動できます（起動中にもう一度開くと設定画面が出ます）。展開したフォルダを移動したときは <span class="ui">作り直す</span> を押してください。</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>削除（アンインストール）</h3>
+    <p>自動起動をオンにしている場合は、先に設定画面でオフにします。ショートカットを作った場合は、設定画面の <span class="ui">ショートカット</span> 欄で <span class="ui">削除</span> を押します。そのうえでアプリを終了し、展開したフォルダを削除します。設定・連携情報・取り込んだキャラクターは <code>%APPDATA%\おしらせメイト</code> に残ります。完全に消したい場合はこのフォルダも削除してください。Google 側の連携も解除したい場合は、削除の前に設定画面で <span class="ui">連携解除</span> を押してください。</p>
+
+    <h3>新しい版への更新</h3>
+    <p>アプリを終了し、展開したフォルダの中身を新しい zip の中身で置き換えます（同じ場所に置けば自動起動の設定もそのまま使えます）。設定・連携情報は引き継がれます。</p>
+
+    <!-- ================================================================ -->
+    <h2 id="google">2. Google との連携（OAuth クライアントの作成）</h2>
+    <p><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> を、<strong>通知を受け取りたい Google アカウント</strong>で開いて進めます。画面の表記は Google 側の変更で多少異なることがあります。</p>
+
+    <h3 id="google-project">2-1. プロジェクトを作る</h3>
+    <ol class="steps">
+      <li>画面上部のプロジェクト選択 → <span class="ui">新しいプロジェクト</span> を押します。</li>
+      <li>プロジェクト名（例：<code>mascot-notifier</code>）を入力して <span class="ui">作成</span> を押し、作成したプロジェクトを選択します。</li>
+    </ol>
+
+    <h3 id="google-api">2-2. 3つの API を有効にする</h3>
+    <p><span class="ui">API とサービス</span> → <span class="ui">ライブラリ</span> で次の3つを検索し、それぞれ <span class="ui">有効にする</span> を押します。</p>
+    <ul>
+      <li><strong>Google Calendar API</strong></li>
+      <li><strong>Google Tasks API</strong></li>
+      <li><strong>Gmail API</strong></li>
+    </ul>
+
+    <h3 id="google-consent">2-3. OAuth 同意画面を設定する</h3>
+    <ol class="steps">
+      <li><span class="ui">API とサービス</span> → <span class="ui">OAuth 同意画面</span>（または <span class="ui">Google Auth Platform</span> → <span class="ui">ブランディング</span>）を開きます。</li>
+      <li>ユーザーの種類は <strong>「外部」</strong> を選びます。</li>
+      <li>アプリ名（例：<code>おしらせメイト</code>）、ユーザーサポートメール、デベロッパーの連絡先メールに自分のメールアドレスを入れて保存します。</li>
+      <li>
+        <span class="ui">データアクセス</span>（スコープ）で次の3つを追加します（いずれも読み取り専用です）。
+        <ul class="copy-list">
+          <li><code>https://www.googleapis.com/auth/calendar.readonly</code><button class="copy" type="button">コピー</button></li>
+          <li><code>https://www.googleapis.com/auth/tasks.readonly</code><button class="copy" type="button">コピー</button></li>
+          <li><code>https://www.googleapis.com/auth/gmail.readonly</code><button class="copy" type="button">コピー</button></li>
+        </ul>
+      </li>
+      <li>
+        <span class="ui">対象</span>（公開ステータス）で <strong><span class="ui">アプリを公開</span> → 本番環境</strong> にします。
+        <div class="note danger"><span class="note-title">「テスト」のままにしないでください</span>テスト状態では連携が <strong>7日で切れ</strong>、毎週連携し直す必要があります。</div>
+        <div class="note">本番環境にしても Google の審査（検証）は不要です。自分だけが使う前提で、次の「未確認のアプリ」警告を許容します。</div>
+      </li>
+    </ol>
+
+    <h3 id="google-client">2-4. OAuth クライアントを作る</h3>
+    <ol class="steps">
+      <li><span class="ui">API とサービス</span> → <span class="ui">認証情報</span> → <span class="ui">認証情報を作成</span> → <span class="ui">OAuth クライアント ID</span> を選びます（または <span class="ui">Google Auth Platform</span> → <span class="ui">クライアント</span> → <span class="ui">クライアントを作成</span>）。</li>
+      <li>アプリケーションの種類は <strong>「デスクトップ アプリ」</strong> を選び、名前（例：<code>mascot</code>）を付けて <span class="ui">作成</span> を押します。</li>
+      <li>
+        表示された <strong>クライアント ID</strong>（<code>〜.apps.googleusercontent.com</code> で終わる値）と <strong>クライアント シークレット</strong> を控えます。
+        <div class="note warn">クライアント シークレットは他人に見せないでください（チャットやスクリーンショットに貼らない）。</div>
+      </li>
+    </ol>
+
+    <h3 id="google-link">2-5. アプリに入力して連携する</h3>
+    <ol class="steps">
+      <li>マスコットを右クリック → <span class="ui">設定</span> を開きます。</li>
+      <li>
+        <span class="ui">OAuth クライアント（共有版）</span> 欄に <strong>Client ID</strong> と <strong>Client Secret</strong> を貼り付けて <span class="ui">保存</span> を押します。
+        <ul>
+          <li>値は暗号化してこの PC 内に保存されます。保存後、Secret 欄は空に戻ります（再表示はされません）。</li>
+          <li>形式が違う・欄を取り違えているとエラーが表示されます。</li>
+        </ul>
+      </li>
+      <li><span class="ui">Googleアカウント連携</span> の <strong><span class="ui">連携する</span></strong> を押すとブラウザが開きます。</li>
+      <li>通知を受け取りたいアカウントを選びます。</li>
+      <li>
+        「Google hasn't verified this app（このアプリは Google で確認されていません）」と表示されたら、<span class="ui">詳細</span> → <span class="ui">（アプリ名）（安全ではないページ）に移動</span> を押します。
+        <ul><li>自分で作った OAuth クライアントなので問題ありません。</li></ul>
+      </li>
+      <li>権限の確認画面では、<strong>すべての項目にチェックを入れて</strong> <span class="ui">続行</span> を押します（1つでも外すと連携できません）。</li>
+      <li>ブラウザに完了の表示が出たら閉じてかまいません。設定画面の状態が <strong>「連携中」</strong> になれば完了です。</li>
+    </ol>
+    <div class="note">連携中は Client ID/Secret を変更できません。変更したいときは <span class="ui">連携解除</span> → 値を保存し直す → <span class="ui">連携する</span> の順に操作します。</div>
+
+    <!-- ================================================================ -->
+    <h2 id="voicevox">3. VOICEVOX（読み上げ。任意）</h2>
+    <p>通知・アイドルトーク・チャットの読み上げには、無料の音声合成ソフト <strong>VOICEVOX</strong> を使います。VOICEVOX は本アプリに含まれていません。使う場合は各自でインストールしてください。入れなくても、読み上げ以外の機能はすべて使えます。</p>
+    <ol class="steps">
+      <li>
+        <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX 公式サイト</a> からダウンロードしてインストールします。
+        <div class="note"><span class="note-title">GPU 版（DirectML）を推奨します</span>CPU 版では1件の読み上げの準備に10秒以上かかることがあり、読み上げが遅れたり間に合わなかったりします（GPU 版では1秒未満の実績があります）。</div>
+      </li>
+      <li>
+        VOICEVOX を起動します（本アプリより先でも後でもかまいません）。
+        <ul><li>本アプリは <code>localhost:50021</code>（VOICEVOX の標準の設定）に接続します。VOICEVOX の設定でポートを変えている場合は使えません。</li></ul>
+      </li>
+      <li>本アプリの設定画面の <span class="ui">ボイス（VOICEVOX）</span> 欄が <strong>「接続中」</strong> になれば準備完了です。「VOICEVOX未検出」のときは VOICEVOX を起動してから <span class="ui">再確認</span> を押します。</li>
+      <li>キャラクターごとの声（話者・話速・音高）は、右クリック → <span class="ui">キャラクター変更</span> → 各キャラクターの <span class="ui">編集</span> で選べます（VOICEVOX の起動中のみ選択できます）。</li>
+    </ol>
+    <div class="note warn"><span class="note-title">クレジット表記</span>VOICEVOX の音声を使うときは、各音声ライブラリの利用規約に従ってください。本アプリの設定画面には、使用中の話者が「VOICEVOX:話者名」の形で表示されます。読み上げた音声を録音して公開するなどの場合は、<a href="https://voicevox.hiroshiba.jp/term/" target="_blank" rel="noopener">VOICEVOX と各キャラクターの規約</a>を確認してください。</div>
+
+    <!-- ================================================================ -->
+    <h2 id="gemini">4. Gemini API キー（チャット「話しかける」。任意）</h2>
+    <p>マスコットと会話する「話しかける」機能には、Google の Gemini API キーが必要です。</p>
+    <ol class="steps">
+      <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> を開き、Google アカウントでログインします。</li>
+      <li><span class="ui">API キーを作成</span> を押し、表示されたキーをコピーします。</li>
+      <li>
+        本アプリの設定画面の <span class="ui">チャット（Gemini）</span> 欄に貼り付けて <span class="ui">保存</span> を押します。
+        <ul>
+          <li>キーは暗号化してこの PC 内に保存されます。</li>
+          <li>保存すると、右クリックメニューの <span class="ui">話しかける</span> が使えるようになります。</li>
+        </ul>
+      </li>
+    </ol>
+    <div class="note">会話で入力した文章（とキャラクター設定）は、応答を作るために Google の Gemini API に送られます。予定・メール・TODO の内容は送りません。無料枠の範囲や料金は Google AI Studio で確認してください。</div>
+
+    <!-- ================================================================ -->
+    <h2 id="trouble">5. 困ったとき</h2>
+    <table>
+      <thead><tr><th style="width: 38%">症状</th><th>対処</th></tr></thead>
+      <tbody>
+        <tr><td>「連携する」が押せない／「設定が必要です」と表示される</td><td><a href="#google-link">2-5</a> の Client ID/Secret が保存されていません。保存し直してください。</td></tr>
+        <tr><td>連携すると「Client ID / Secret が Google に受け付けられませんでした」と出る</td><td><a href="#google-client">2-4</a> の値をコピーし直して保存してください（前後の空白・Secret の欠け・別のクライアントの値に注意）。クライアントを削除した場合は作り直します。</td></tr>
+        <tr><td>「必要な権限がすべて許可されませんでした」と出る</td><td><a href="#google-link">2-5</a> の手順6で、すべての項目にチェックを入れて連携し直してください。<a href="#google-consent">2-3</a> の手順4でスコープが3つとも追加されているかも確認します。</td></tr>
+        <tr><td>7日ほどで「連携の有効期限が切れました」と出る</td><td><a href="#google-consent">2-3</a> の手順5で、同意画面が「テスト」のままになっています。「本番環境」に公開してから連携し直してください。</td></tr>
+        <tr><td>通知が来ない</td><td>設定画面で「連携中」になっているか確認してください。重要メールは最大約1分、予定・TODO は更新から最大約5分で取り込まれます。</td></tr>
+        <tr><td>「VOICEVOX未検出」と出る／読み上げされない</td><td>VOICEVOX を起動して「再確認」を押してください。ミュート中・ボイス音量0%のときも読み上げません。</td></tr>
+        <tr><td>読み上げが遅い・途中から読まれない</td><td>VOICEVOX の GPU 版をお使いください（<a href="#voicevox">3</a> の手順1）。1件の準備に20秒以上かかる場合は読み上げを省略します。</td></tr>
+        <tr><td>「インターネットにつながらないみたい」と出る</td><td>ネットワークが戻ると自動で再開します。</td></tr>
+      </tbody>
+    </table>
+    <p>設定・ログの保存先：<code>%APPDATA%\おしらせメイト</code>（ログは <code>logs\</code> に14日分）。不具合を伝えるときはログを添えてください（ログに Client Secret・トークン・API キーは記録されません）。</p>
+
+    <!-- ================================================================ -->
+    <h2 id="credits">クレジット</h2>
+    <ul>
+      <li><strong>VOICEVOX</strong>：読み上げに <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> を使用しています（本アプリには同梱していません）。使用する音声ライブラリのクレジット（「VOICEVOX:話者名」）は設定画面のボイス欄に表示されます。</li>
+      <li><strong>EmoteLab</strong>：キャラクター画像を <a href="https://emotelab.app/" target="_blank" rel="noopener">EmoteLab</a> で作成した場合は、EmoteLab を使用した旨のクレジット表記が必要です（<a href="https://emotelab.app/eula/" target="_blank" rel="noopener">EmoteLab EULA</a>）。EmoteLab 本体は本アプリに含まれません。</li>
+    </ul>
+
+    <footer>おしらせメイト 共有版 セットアップ手順書</footer>
+  </main>
+</div>
+
+<script>
+  // スコープのコピー（クリップボードが使えないブラウザでは文字列を選択状態にするだけ）
+  for (const button of document.querySelectorAll('button.copy')) {
+    button.addEventListener('click', async () => {
+      const code = button.previousElementSibling;
+      const text = code.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = 'コピーしました';
+        button.classList.add('done');
+        setTimeout(() => {
+          button.textContent = 'コピー';
+          button.classList.remove('done');
+        }, 1500);
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+  }
+</script>
+</body>
+</html>

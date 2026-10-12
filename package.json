@@ -1,0 +1,36 @@
+{
+  "name": "oshirase-mate",
+  "version": "0.1.0",
+  "description": "おしらせメイト（デスクトップマスコット通知アプリ）",
+  "private": true,
+  "author": "katuo194",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/katuo194/oshirase-mate.git"
+  },
+  "type": "module",
+  "main": "src/main/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "vitest run",
+    "dist:shared": "electron-builder --win --config build/electron-builder.shared.cjs && node scripts/check-dist.mjs post shared",
+    "dist:personal": "node scripts/check-dist.mjs pre personal && electron-builder --win --config build/electron-builder.personal.cjs && node scripts/check-dist.mjs post personal"
+  },
+  "dependencies": {
+    "@googleapis/calendar": "^20.0.0",
+    "@googleapis/gmail": "^22.0.0",
+    "@googleapis/tasks": "^17.0.0",
+    "dotenv": "^18.0.1",
+    "electron-store": "^11.0.2"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "vitest": "^5.0.1"
+  }
+}

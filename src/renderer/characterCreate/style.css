@@ -1,0 +1,207 @@
+:root {
+  color-scheme: light;
+  font-family: 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+  font-size: 14px;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #222222;
+}
+
+main {
+  padding: 16px 24px 24px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+h2 {
+  margin: 20px 0 8px;
+  font-size: 14px;
+  color: #555555;
+  border-bottom: 1px solid #dddddd;
+  padding-bottom: 4px;
+}
+
+.hint {
+  margin: 4px 0 8px;
+  color: #666666;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 5px 8px;
+}
+
+.slots {
+  width: 100%;
+  border-collapse: collapse;
+}
+.slots th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+  color: #777777;
+  padding: 0 4px 4px;
+}
+.slots td {
+  padding: 6px 4px;
+  border-top: 1px solid #eeeeee;
+  vertical-align: middle;
+}
+
+.slot-label {
+  white-space: nowrap;
+}
+.required {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #e5484d;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.folder-status {
+  font-size: 12px;
+  color: #666666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 230px;
+}
+.folder-status.ok {
+  color: #1e7e34;
+}
+.folder-status.error {
+  color: #c0392b;
+  white-space: normal;
+}
+
+input[type='number'] {
+  width: 56px;
+  font: inherit;
+  padding: 3px 4px;
+}
+
+button {
+  font: inherit;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.actions {
+  margin: 16px 0 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+.status {
+  font-size: 12px;
+  color: #666666;
+}
+.status.ok {
+  color: #1e7e34;
+}
+.status.error {
+  color: #c0392b;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eeeeee;
+}
+.list img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  /* 透過PNGが見やすいよう市松模様の背景 */
+  background: repeating-conic-gradient(#f0f0f0 0 25%, #ffffff 0 50%) 0 0 / 10px 10px;
+  border-radius: 4px;
+}
+.list .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list .current {
+  font-size: 11px;
+  color: #1e5fd8;
+}
+
+.hint.error {
+  color: #c0392b;
+}
+
+.voice-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.voice-row select {
+  grid-column: 2 / 4;
+  font: inherit;
+  padding: 3px 4px;
+}
+.voice-row output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+}
+.persona-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.count {
+  flex: none;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777777;
+  font-variant-numeric: tabular-nums;
+}
+.count.error {
+  color: #c0392b;
+}
+
+.credit {
+  margin: 20px 0 0;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.5;
+}

@@ -1,0 +1,125 @@
+:root {
+  color-scheme: light;
+  font-family: 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+  font-size: 14px;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #222222;
+}
+
+main {
+  padding: 16px 24px 24px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+h2 {
+  margin: 20px 0 8px;
+  font-size: 14px;
+  color: #555555;
+  border-bottom: 1px solid #dddddd;
+  padding-bottom: 4px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 64px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.row output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  cursor: pointer;
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #777777;
+}
+
+.auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.auth-status {
+  font-weight: bold;
+}
+
+.auth-status.linked {
+  color: #1a7f37;
+}
+
+.auth-actions button {
+  padding: 4px 14px;
+  font: inherit;
+}
+
+.hint.error {
+  color: #b42318;
+}
+
+.auth-status.warning {
+  color: #b42318;
+}
+
+.key-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.key-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.key-row button {
+  padding: 4px 14px;
+  font: inherit;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.field-row input {
+  min-width: 0;
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.field-row input:disabled {
+  background: #f3f3f3;
+}
+
+.field-row button {
+  padding: 4px 14px;
+  font: inherit;
+}

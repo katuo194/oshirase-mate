@@ -1,0 +1,207 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: 'Yu Gothic UI', 'Meiryo UI', 'Segoe UI', sans-serif;
+}
+
+/* 出入りのフェード（F-20）。メインは透明になってからウィンドウを隠す（mascotVisibility.js の HIDE_DELAY_MS はこれより少し長い） */
+body {
+  transition: opacity 200ms ease-out;
+}
+body.concealed {
+  opacity: 0;
+}
+
+/* キャラクター枠。通常は (0,0)。吹き出し表示中はメインから届くレイアウトで位置が変わる（app.js） */
+#char {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 200px;
+  height: 200px;
+}
+
+#character {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+
+/* サマリバッジ（重要でないメールの未読件数）。キャラクター円の右上（45°付近）。クリックは常に透過 */
+#badge {
+  position: absolute;
+  left: 143px;
+  top: 29px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: #e5484d;
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+#badge[hidden] {
+  display: none;
+}
+#badge.wide {
+  font-size: 11px;
+}
+/* 値が変わった瞬間の、ごく軽いポップ（約200ms） */
+#badge.pop {
+  animation: badge-pop 200ms ease-out;
+}
+@keyframes badge-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* オフライン表示（F-14）。キャラクター円の左下（225°付近）。右上の未読バッジと位置で区別する。
+   ゆっくりした点滅は CSS アニメーション（合成スレッドで動くので rAF を回さない：待機CPU 4章） */
+#offline-badge {
+  position: absolute;
+  left: 22px;
+  top: 142px;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 15px;
+  background: #6b7280;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  animation: offline-blink 2.4s ease-in-out infinite;
+}
+#offline-badge[hidden] {
+  display: none;
+}
+@keyframes offline-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* 吹き出し。位置・大きさはレイアウト通知で決まる。クリックは常に透過（ヒットテストはキャラクターのα値のみ） */
+#bubble {
+  --accent: #6b7280;
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 350ms ease-out, transform 350ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+#bubble[hidden] {
+  display: none;
+}
+#bubble.in {
+  opacity: 1;
+  transform: scale(1);
+}
+/* 退場は出現より少し長め（遷移時間 1 秒の内側で消え切る） */
+#bubble:not(.in) {
+  transition: opacity 500ms ease-in, transform 500ms ease-in;
+}
+
+#bubble .body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 96px;
+  box-sizing: border-box;
+  padding: 6px 12px; /* 枠(2px)を除いた内側 92px に、ラベル16＋題名2行38＋副題17＋余白で収める（2行題名でも余裕あり） */
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 2px solid var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  color: #222;
+}
+#bubble.side-top .body { top: 0; }
+#bubble.side-bottom .body { bottom: 0; }
+
+#bubble .label {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+#bubble .title {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 19px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+/* アイドルトーク（F-15）：種別ラベル・副題なしの軽い表現。題名を3行まで、少し落ち着いた太さで出す（通知と見た目で区別する） */
+#bubble .label:empty {
+  display: none;
+}
+#bubble.idle .body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* ラベル・副題がない分、文を縦中央に置く */
+}
+#bubble.idle .title {
+  margin-top: 0;
+  font-weight: 500;
+  -webkit-line-clamp: 3;
+}
+#bubble .sub {
+  margin-top: 0;
+  font-size: 13px;
+  line-height: 17px;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 尻尾：回転した正方形の2辺だけに枠を付ける。位置（left）は JS が tailX から設定 */
+#bubble .tail {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.97);
+  border: 0 solid var(--accent);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+#bubble.side-top .tail {
+  top: 96px; /* 本体の下端 */
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+#bubble.side-bottom .tail {
+  top: 14px; /* 本体の上端（尻尾用の 14px の直下） */
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+
+/* --dev 起動時のみ：ウィンドウ範囲を可視化（クリック透過の確認用） */
+body.dev {
+  outline: 1px dashed rgba(255, 0, 0, 0.6);
+  outline-offset: -1px;
+}

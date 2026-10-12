@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <!-- img-src の mascot-character:：取り込み済みキャラクターのサムネイル（rest の1枚目） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: mascot-character:" />
+  <title>キャラクター作成</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1 id="heading">キャラクター作成</h1>
+    <p id="intro" class="hint">
+      EmoteLab の ImageSequence（400×400px・透過PNG、000.png から始まる3桁連番）で書き出したフォルダを、モーションごとに選んでください。
+      カレンダー・TODO・重要メールは任意で、未設定の場合は「通知」のモーションを使います。
+    </p>
+    <p id="missing" class="hint error" hidden>このキャラクターは見つかりませんでした（削除された可能性があります）。</p>
+
+    <div id="form">
+      <section id="name-section">
+        <h2>キャラクター名</h2>
+        <input id="name" type="text" maxlength="40" placeholder="例：星空寝夢" autocomplete="off" />
+      </section>
+
+      <section id="slots-section">
+        <h2>モーション</h2>
+        <table class="slots">
+          <thead>
+            <tr><th>モーション</th><th>フォルダ</th><th>fps</th><th></th></tr>
+          </thead>
+          <tbody id="slots"></tbody>
+        </table>
+      </section>
+
+      <!-- 声（F-13・v5.9。v5.11 で両版に表示）。通知・アイドルトーク・チャットのすべての読み上げに使う -->
+      <section id="voice-section">
+        <h2>声（VOICEVOX）</h2>
+        <div class="voice-row">
+          <label for="speaker">話者</label>
+          <select id="speaker"></select>
+        </div>
+        <div class="voice-row">
+          <label for="speed">話速</label>
+          <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1" />
+          <output id="speed-value" for="speed">1.00</output>
+        </div>
+        <div class="voice-row">
+          <label for="pitch">音高</label>
+          <input id="pitch" type="range" min="-0.15" max="0.15" step="0.01" value="0" />
+          <output id="pitch-value" for="pitch">0.00</output>
+        </div>
+        <p id="voice-status" class="hint"></p>
+        <p class="hint">通知・アイドルトーク・チャットの読み上げに、このキャラクターを選んでいる間この声を使います。</p>
+      </section>
+
+      <!-- キャラクター設定（チャットの人格。3.5・v5.9） -->
+      <section id="persona-section">
+        <h2>キャラクター設定（チャット）</h2>
+        <textarea id="persona" rows="6" maxlength="1000" placeholder="例：夜空を眺めるのが好きな、おっとりした女の子。一人称は「わたし」。語尾は「〜だよ」「〜かな」。"></textarea>
+        <div class="persona-foot">
+          <span class="hint">性格・口調・一人称などを書くと、チャットでこのキャラクターとして話します。空欄なら標準の話し方です。チャットのたびに Gemini へ送られます。</span>
+          <span id="persona-count" class="count">0/1000</span>
+        </div>
+      </section>
+
+      <div class="actions">
+        <span id="submit-status" class="status" role="status"></span>
+        <button id="submit" type="button" disabled>取り込む</button>
+      </div>
+    </div>
+
+    <section id="list-section">
+      <h2>取り込み済みのキャラクター</h2>
+      <ul id="list" class="list"></ul>
+      <p id="list-empty" class="hint" hidden>まだありません。</p>
+    </section>
+
+    <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。EmoteLab 本体は本アプリに含まれません。</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

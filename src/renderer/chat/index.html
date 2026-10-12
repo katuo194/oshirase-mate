@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <!-- media-src：応答の読み上げ音声（userData/tts の WAV）を file: から再生するため。connect-src は付けない（外部へは通信しない。Gemini はメインだけが呼ぶ） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' file:" />
+  <title>チャット</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <div id="log" role="log" aria-live="polite">
+      <p id="empty-hint" class="hint">なんでも話しかけてね。</p>
+    </div>
+
+    <p id="counter" class="counter" hidden></p>
+
+    <form id="form" autocomplete="off">
+      <textarea id="input" rows="2" maxlength="500" placeholder="メッセージを入力（Enterで送信、Shift+Enterで改行）" aria-label="メッセージ"></textarea>
+      <button id="send" type="submit">送信</button>
+    </form>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

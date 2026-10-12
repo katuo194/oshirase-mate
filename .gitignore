@@ -1,0 +1,21 @@
+node_modules/
+dist/
+out/
+*.log
+.claude/settings.local.json
+
+# 秘密情報（OAuth Client ID/Secret 等）。ひな形の .env.example だけは含める
+.env
+.env.*
+!.env.example
+
+# userData 相当（通常は %APPDATA%\my-mascot-app でリポジトリ外。
+# 開発中に userData をプロジェクト内へ向けた場合や、誤ってコピーした場合の保険）
+userData/
+*.enc
+*.enc.tmp
+/config.json
+/notified.json
+/notified.json.tmp
+/logs/
+/tts/

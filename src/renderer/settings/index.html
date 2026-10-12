@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:" />
+  <title>設定</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>設定</h1>
+
+    <!-- OAuth クライアント（共有版のみ表示。2.4・3.6・F-18）。Secret は暗号化して保存し、この画面には二度と表示しない -->
+    <section id="oauth-section" hidden>
+      <h2>OAuth クライアント（共有版）</h2>
+      <div class="auth-row">
+        <span id="oauth-status" class="auth-status">確認中…</span>
+        <div class="auth-actions">
+          <button id="oauth-manual" type="button">セットアップ手順を開く</button>
+          <button id="oauth-clear" type="button" hidden>削除</button>
+        </div>
+      </div>
+      <div class="field-row">
+        <label for="oauth-client-id">Client ID</label>
+        <input id="oauth-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="〜.apps.googleusercontent.com" />
+      </div>
+      <div class="field-row">
+        <label for="oauth-client-secret">Client Secret</label>
+        <input id="oauth-client-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Client Secret を貼り付け" />
+        <button id="oauth-save" type="button" disabled>保存</button>
+      </div>
+      <p id="oauth-detail" class="hint" hidden></p>
+      <p class="hint">Google Cloud で作成した OAuth クライアント（種類：デスクトップアプリ）の値を入力してください。値は暗号化してこのPC内に保存されます。作り方はセットアップ手順書を参照してください。</p>
+    </section>
+
+    <section>
+      <h2>Googleアカウント連携</h2>
+      <div class="auth-row">
+        <span id="auth-status" class="auth-status">確認中…</span>
+        <div class="auth-actions">
+          <button id="auth-link" type="button" hidden>連携する</button>
+          <button id="auth-cancel" type="button" hidden>キャンセル</button>
+          <button id="auth-unlink" type="button" hidden>連携解除</button>
+        </div>
+      </div>
+      <p id="auth-detail" class="hint" hidden></p>
+    </section>
+
+    <section>
+      <h2>音量</h2>
+      <div class="row">
+        <label for="volume-sfx">効果音</label>
+        <input id="volume-sfx" type="range" min="0" max="100" step="1" />
+        <output id="volume-sfx-value" for="volume-sfx">0%</output>
+      </div>
+      <div class="row">
+        <label for="volume-voice">ボイス</label>
+        <input id="volume-voice" type="range" min="0" max="100" step="1" />
+        <output id="volume-voice-value" for="volume-voice">0%</output>
+      </div>
+    </section>
+
+    <!-- ボイス（VOICEVOX 読み上げ。F-13。個人版・共有版とも表示：v5.11） -->
+    <section id="voice-section">
+      <h2>ボイス（VOICEVOX）</h2>
+      <div class="auth-row">
+        <span id="voice-status" class="auth-status">確認中…</span>
+        <div class="auth-actions">
+          <button id="voice-recheck" type="button">再確認</button>
+        </div>
+      </div>
+      <p id="voice-detail" class="hint" hidden></p>
+      <p id="voice-credit" class="hint" hidden></p>
+    </section>
+
+    <!-- チャット（Gemini。F-16）。キーは暗号化して保存し、この画面には二度と表示しない -->
+    <section id="gemini-section">
+      <h2>チャット（Gemini）</h2>
+      <div class="auth-row">
+        <span id="gemini-status" class="auth-status">確認中…</span>
+        <div class="auth-actions">
+          <button id="gemini-clear" type="button" hidden>キーを削除</button>
+        </div>
+      </div>
+      <div class="key-row">
+        <input id="gemini-key" type="password" autocomplete="off" spellcheck="false" placeholder="Gemini APIキーを貼り付け" aria-label="Gemini APIキー" />
+        <button id="gemini-save" type="button">保存</button>
+      </div>
+      <p id="gemini-detail" class="hint" hidden></p>
+      <p class="hint">キーは Google AI Studio で取得できます。暗号化してこのPC内に保存され、キーを入力すると右クリックメニューの「話しかける」が使えるようになります。</p>
+    </section>
+
+    <section>
+      <h2>動作</h2>
+      <label class="check">
+        <input id="muted" type="checkbox" />
+        <span>ミュート（効果音・読み上げを止める）</span>
+      </label>
+      <label class="check">
+        <input id="launch-at-login" type="checkbox" />
+        <span>Windowsにログインしたとき自動で起動する</span>
+      </label>
+      <label class="check">
+        <input id="notify-only" type="checkbox" />
+        <span>通知のときだけマスコットを表示する</span>
+      </label>
+      <p class="hint">オンにすると、マスコットは通知のときだけ現れて、終わると消えます（独り言も話しません）。メニューはタスクトレイのアイコンから開けます。</p>
+    </section>
+
+    <!-- ショートカット（F-19。配布版のみ作成できる） -->
+    <section>
+      <h2>ショートカット</h2>
+      <div class="auth-row">
+        <span>デスクトップ：<span id="shortcut-desktop-status" class="auth-status">確認中…</span></span>
+        <div class="auth-actions">
+          <button id="shortcut-desktop-create" type="button" hidden>作成</button>
+          <button id="shortcut-desktop-remove" type="button" hidden>削除</button>
+        </div>
+      </div>
+      <div class="auth-row">
+        <span>スタートメニュー：<span id="shortcut-startMenu-status" class="auth-status">確認中…</span></span>
+        <div class="auth-actions">
+          <button id="shortcut-startMenu-create" type="button" hidden>作成</button>
+          <button id="shortcut-startMenu-remove" type="button" hidden>削除</button>
+        </div>
+      </div>
+      <p id="shortcut-detail" class="hint" hidden></p>
+      <p class="hint">アプリのフォルダを移動したときは作り直してください。フォルダを削除する前に、ここでショートカットも削除してください。</p>
+    </section>
+
+    <!-- クレジット（7.4 EmoteLab の EULA。VOICEVOX の表記は上のボイス欄に接続中の話者名で出す） -->
+    <section>
+      <h2>クレジット</h2>
+      <p class="hint">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。EmoteLab 本体は本アプリに含まれません。</p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

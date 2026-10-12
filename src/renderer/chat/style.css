@@ -1,0 +1,108 @@
+:root {
+  color-scheme: light;
+  font-family: 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+  font-size: 14px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #222222;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px 12px;
+  gap: 8px;
+}
+
+#log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.hint {
+  margin: 4px 0;
+  font-size: 12px;
+  color: #777777;
+}
+
+.msg {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: #fff3bf;
+  border-bottom-right-radius: 4px;
+}
+
+.msg.bot {
+  align-self: flex-start;
+  background: #f1f3f5;
+  border-bottom-left-radius: 4px;
+}
+
+/* 失敗時のフォールバック応答・考え中の表示は控えめに */
+.msg.fallback,
+.msg.thinking {
+  color: #666666;
+  font-style: italic;
+}
+
+.notice {
+  align-self: center;
+  font-size: 12px;
+  color: #777777;
+}
+
+.counter {
+  margin: 0;
+  text-align: right;
+  font-size: 12px;
+  color: #555555;
+  font-variant-numeric: tabular-nums;
+}
+
+#form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+#input {
+  flex: 1;
+  resize: none;
+  padding: 6px 8px;
+  font: inherit;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+}
+
+#send {
+  padding: 6px 16px;
+  font: inherit;
+}
+
+#input:disabled,
+#send:disabled {
+  opacity: 0.6;
+}

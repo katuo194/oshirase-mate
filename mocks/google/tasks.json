@@ -1,0 +1,87 @@
+{
+  "_comment": "tasklists.list と、各リストの tasks.list（showCompleted=false でも completed が混ざり得るため除外はアプリ側で行う）。基準時刻 now は 2026-09-20T09:00:00Z。due は常にUTC0時の日付単位。",
+  "tasklists": {
+    "kind": "tasks#taskLists",
+    "items": [
+      { "kind": "tasks#taskList", "id": "list-main", "title": "マイタスク", "updated": "2026-09-20T08:00:00.000Z" },
+      { "kind": "tasks#taskList", "id": "list-work", "title": "仕事", "updated": "2026-09-20T08:00:00.000Z" }
+    ]
+  },
+  "tasks": {
+    "list-main": {
+      "kind": "tasks#tasks",
+      "items": [
+        {
+          "_case": "当日期限 → ローカル16:00に発火（16:00前ならタイマー、過ぎていれば即時）",
+          "kind": "tasks#task",
+          "id": "task-milk",
+          "title": "牛乳を買う",
+          "notes": "低脂肪のもの",
+          "status": "needsAction",
+          "due": "2026-09-20T00:00:00.000Z",
+          "updated": "2026-09-19T10:00:00.000Z"
+        },
+        {
+          "_case": "期限超過 → どのタイムゾーンでも過去なので即時発火",
+          "kind": "tasks#task",
+          "id": "task-overdue",
+          "title": "請求書を出す",
+          "status": "needsAction",
+          "due": "2026-09-18T00:00:00.000Z",
+          "updated": "2026-09-17T10:00:00.000Z"
+        },
+        {
+          "_case": "完了済み → 通知しない",
+          "kind": "tasks#task",
+          "id": "task-done",
+          "title": "ゴミを出す",
+          "status": "completed",
+          "due": "2026-09-19T00:00:00.000Z",
+          "completed": "2026-09-19T22:00:00.000Z",
+          "updated": "2026-09-19T22:00:00.000Z"
+        },
+        {
+          "_case": "期限なし → 通知しない",
+          "kind": "tasks#task",
+          "id": "task-no-due",
+          "title": "いつかやる",
+          "status": "needsAction",
+          "updated": "2026-09-01T10:00:00.000Z"
+        },
+        {
+          "_case": "未来の期限 → どのタイムゾーンでも未来なのでタイマー登録",
+          "kind": "tasks#task",
+          "id": "task-future",
+          "title": "健康診断の予約",
+          "status": "needsAction",
+          "due": "2026-09-25T00:00:00.000Z",
+          "updated": "2026-09-19T10:00:00.000Z"
+        },
+        {
+          "_case": "削除済み → 通知しない",
+          "kind": "tasks#task",
+          "id": "task-deleted",
+          "title": "消したタスク",
+          "status": "needsAction",
+          "due": "2026-09-20T00:00:00.000Z",
+          "deleted": true,
+          "updated": "2026-09-19T11:00:00.000Z"
+        }
+      ]
+    },
+    "list-work": {
+      "kind": "tasks#tasks",
+      "items": [
+        {
+          "_case": "list-main と同じ生タスクIDを意図的に持たせ、リストIDを含めたID体系が衝突しないことを検証する",
+          "kind": "tasks#task",
+          "id": "task-milk",
+          "title": "経費精算",
+          "status": "needsAction",
+          "due": "2026-09-20T00:00:00.000Z",
+          "updated": "2026-09-19T10:00:00.000Z"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "_comment": "users.messages.list（重要／それ以外）と users.messages.get（format=metadata）のレスポンス。重要判定は Gmail 標準の IMPORTANT ラベル（7.1）。",
+  "importantInitial": {
+    "_case": "初回ポーリング。7.1 により既存の未読はすべて通知済み扱いにする（通知を出さない）",
+    "messages": [
+      { "id": "18f3c0a1b2c3d4e5", "threadId": "18f3c0a1b2c3d4e5" },
+      { "id": "18f3c0a1b2c3d4e6", "threadId": "18f3c0a1b2c3d4e6" }
+    ],
+    "resultSizeEstimate": 2
+  },
+  "importantWithNew": {
+    "_case": "2回目。末尾2件が新規（Gmailは新しい順に返すため先頭が新しいが、テストで順序も検証する）",
+    "messages": [
+      { "id": "18f3c0a1b2c3d4f1", "threadId": "18f3c0a1b2c3d4f1" },
+      { "id": "18f3c0a1b2c3d4f0", "threadId": "18f3c0a1b2c3d4f0" },
+      { "id": "18f3c0a1b2c3d4e5", "threadId": "18f3c0a1b2c3d4e5" },
+      { "id": "18f3c0a1b2c3d4e6", "threadId": "18f3c0a1b2c3d4e6" }
+    ],
+    "resultSizeEstimate": 4
+  },
+  "importantEmpty": {
+    "_case": "0件のとき messages キー自体が返らない（Gmail APIの実挙動）",
+    "resultSizeEstimate": 0
+  },
+  "unreadOtherInitial": {
+    "_case": "F-02b の初期状態：未読3件",
+    "messages": [
+      { "id": "18f3aa0000000001", "threadId": "18f3aa0000000001" },
+      { "id": "18f3aa0000000002", "threadId": "18f3aa0000000002" },
+      { "id": "18f3aa0000000003", "threadId": "18f3aa0000000003" }
+    ],
+    "resultSizeEstimate": 3
+  },
+  "unreadOtherIncreased": {
+    "_case": "F-02b：3件→5件に増加",
+    "messages": [
+      { "id": "18f3aa0000000005", "threadId": "18f3aa0000000005" },
+      { "id": "18f3aa0000000004", "threadId": "18f3aa0000000004" },
+      { "id": "18f3aa0000000001", "threadId": "18f3aa0000000001" },
+      { "id": "18f3aa0000000002", "threadId": "18f3aa0000000002" },
+      { "id": "18f3aa0000000003", "threadId": "18f3aa0000000003" }
+    ],
+    "resultSizeEstimate": 5
+  },
+  "unreadOtherDecreased": {
+    "_case": "既読化で減少（サマリは更新するが通知は出さない）",
+    "messages": [{ "id": "18f3aa0000000005", "threadId": "18f3aa0000000005" }],
+    "resultSizeEstimate": 1
+  },
+  "messages": {
+    "18f3c0a1b2c3d4e5": {
+      "id": "18f3c0a1b2c3d4e5",
+      "threadId": "18f3c0a1b2c3d4e5",
+      "labelIds": ["UNREAD", "IMPORTANT", "INBOX"],
+      "snippet": "先日の件ですが、来週の水曜日までにご返信いただけますと",
+      "payload": {
+        "headers": [
+          { "name": "Subject", "value": "【要返信】契約書の確認について" },
+          { "name": "From", "value": "山田太郎 <yamada@example.co.jp>" },
+          { "name": "Date", "value": "Sun, 20 Sep 2026 17:40:00 +0900" }
+        ]
+      }
+    },
+    "18f3c0a1b2c3d4e6": {
+      "id": "18f3c0a1b2c3d4e6",
+      "threadId": "18f3c0a1b2c3d4e6",
+      "labelIds": ["UNREAD", "IMPORTANT", "INBOX"],
+      "snippet": "お疲れ様です。明日の打ち合わせの資料を共有します",
+      "payload": {
+        "headers": [
+          { "name": "Subject", "value": "明日の打ち合わせ資料" },
+          { "name": "From", "value": "鈴木花子 <suzuki@example.co.jp>" },
+          { "name": "Date", "value": "Sun, 20 Sep 2026 17:45:00 +0900" }
+        ]
+      }
+    },
+    "18f3c0a1b2c3d4f0": {
+      "_case": "差出人が表示名なしのメールアドレスのみ",
+      "id": "18f3c0a1b2c3d4f0",
+      "threadId": "18f3c0a1b2c3d4f0",
+      "labelIds": ["UNREAD", "IMPORTANT", "INBOX"],
+      "snippet": "サーバーの死活監視でエラーを検知しました",
+      "payload": {
+        "headers": [
+          { "name": "Subject", "value": "[ALERT] health check failed" },
+          { "name": "From", "value": "alerts@monitoring.example.com" },
+          { "name": "Date", "value": "Sun, 20 Sep 2026 18:00:00 +0900" }
+        ]
+      }
+    },
+    "18f3c0a1b2c3d4f1": {
+      "_case": "Subject ヘッダが存在しない（件名なしメール）",
+      "id": "18f3c0a1b2c3d4f1",
+      "threadId": "18f3c0a1b2c3d4f1",
+      "labelIds": ["UNREAD", "IMPORTANT", "INBOX"],
+      "snippet": "至急確認してください",
+      "payload": {
+        "headers": [
+          { "name": "From", "value": "田中一郎 <tanaka@example.co.jp>" },
+          { "name": "Date", "value": "Sun, 20 Sep 2026 18:02:00 +0900" }
+        ]
+      }
+    }
+  }
+}
