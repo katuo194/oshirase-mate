@@ -4,7 +4,8 @@
 // 周の切り替わりでは、直前に選んだ文面が新しい袋の先頭に来ないよう入れ替える（連続の防止を保証）。
 // カテゴリ均等巡回にしない理由：独り言5種が全体の1/3の頻度で出て、同じ文が早く再登場するため。
 //
-// アイドルトーク（morning / bedtime / normal）と通知の読み上げのセリフ（calendar / calendarAllDay / tasks / gmail）を、
+// アイドルトーク（morning / bedtime / normal）と通知の読み上げのセリフ（calendar / calendarAllDay / tasks / gmail）、
+// チャットの終了メッセージ（closing。Phase 14）を、
 // 選択中のキャラクターのセリフ（characterLines.js）から選ぶ。設定の無い種類は今の固定文。キャラクターを切り替えたら作り直す。
 
 import { effectiveLines } from './characterLines.js';
@@ -99,6 +100,16 @@ export function createPhrasePicker({ rng = Math.random, lines = null, sets } = {
     pickNotify(kind, accept) {
       if (!Object.hasOwn(effective.notify, kind)) throw new Error(`unknown kind: ${kind}`);
       return bagOf(`notify.${kind}`, effective.notify[kind]).next(accept);
+    },
+
+    /**
+     * チャットのセリフ（Phase 14：終了メッセージ）。会話の開始時に1回選ぶ。
+     * @param {'closing'} kind
+     * @returns {string}
+     */
+    pickChat(kind) {
+      if (!Object.hasOwn(effective.chat, kind)) throw new Error(`unknown kind: ${kind}`);
+      return bagOf(`chat.${kind}`, effective.chat[kind]).next();
     },
   };
 }

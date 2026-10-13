@@ -95,21 +95,30 @@ export function extractText(data) {
  * @param {() => Promise<string | null>} deps.getApiKey 保存済みキー（未設定なら null）
  * @param {readonly string[]} [deps.models] 使用するモデルの候補（先頭から試す。404 で次へ）
  * @param {string} [deps.baseUrl]
- * @param {number} [deps.timeoutMs]
+ * @param {number} [deps.timeoutMs] 1リクエストの上限時間（generate の timeoutMs で呼び出しごとに変えられる）
+ * @param {string} [deps.logTag] ログの頭（[chat] など。使い道ごとにクライアントを分けるため）
  * @param {{ info: Function, warn: Function }} [deps.log]
  */
-export function createGeminiClient({ fetch, getApiKey, models = GEMINI_MODELS, baseUrl = GEMINI_BASE_URL, timeoutMs = REQUEST_TIMEOUT_MS, log = console }) {
+export function createGeminiClient({
+  fetch,
+  getApiKey,
+  models = GEMINI_MODELS,
+  baseUrl = GEMINI_BASE_URL,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  logTag = 'chat',
+  log = console,
+}) {
   /** 最後に成功したモデルの位置。次回以降はここから試す（毎回 404 を踏まない） */
   let activeIndex = 0;
 
   /** 1つのモデルで1回リクエストする。 */
-  async function attempt({ model, key, systemPrompt, contents, signal }) {
+  async function attempt({ model, key, systemPrompt, contents, signal, generationConfig, limitMs }) {
     const controller = new AbortController();
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, timeoutMs);
+    }, limitMs);
     const onAbort = () => controller.abort();
     if (signal?.aborted) controller.abort();
     else signal?.addEventListener('abort', onAbort, { once: true });
@@ -123,7 +132,7 @@ export function createGeminiClient({ fetch, getApiKey, models = GEMINI_MODELS, b
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: contents.map((c) => ({ role: c.role, parts: [{ text: c.text }] })),
-            generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.9 },
+            generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.9, ...generationConfig },
           }),
           signal: controller.signal,
         });
@@ -166,11 +175,14 @@ export function createGeminiClient({ fetch, getApiKey, models = GEMINI_MODELS, b
 
   return {
     /**
-     * @param {{ systemPrompt: string, contents: { role: 'user' | 'model', text: string }[], signal?: AbortSignal }} req
+     * @param {{ systemPrompt: string, contents: { role: 'user' | 'model', text: string }[], signal?: AbortSignal,
+     *   generationConfig?: object, timeoutMs?: number }} req
+     *   generationConfig は既定（maxOutputTokens・temperature）に上書きして送る（セリフの生成の JSON 出力など：Phase 14）。
+     *   timeoutMs は1リクエストの上限時間（省略時はクライアントの既定）
      * @returns {Promise<string>} 応答本文
      * @throws {GeminiError}
      */
-    async generate({ systemPrompt, contents, signal }) {
+    async generate({ systemPrompt, contents, signal, generationConfig = {}, timeoutMs: limitMs = timeoutMs }) {
       const key = await getApiKey();
       if (!key) throw new GeminiError('auth');
 
@@ -178,23 +190,23 @@ export function createGeminiClient({ fetch, getApiKey, models = GEMINI_MODELS, b
       for (let i = activeIndex; i < models.length; i++) {
         const model = models[i];
         try {
-          const text = await attempt({ model, key, systemPrompt, contents, signal });
-          if (i !== activeIndex) log.info(`[chat] Gemini のモデルを ${model} に切り替えました`);
+          const text = await attempt({ model, key, systemPrompt, contents, signal, generationConfig, limitMs });
+          if (i !== activeIndex) log.info(`[${logTag}] Gemini のモデルを ${model} に切り替えました`);
           activeIndex = i;
           return text;
         } catch (e) {
           if (!(e instanceof GeminiError)) {
-            log.warn(`[chat] Gemini の呼び出しで想定外のエラー: ${e?.name ?? 'Error'}`);
+            log.warn(`[${logTag}] Gemini の呼び出しで想定外のエラー: ${e?.name ?? 'Error'}`);
             throw new GeminiError('unknown');
           }
           lastError = e;
           if (e.kind === 'aborted') throw e;
           if ((e.kind === 'model_unavailable' || e.kind === 'quota') && i < models.length - 1) {
             // このモデルは使えない（404）／課金条件で断られた（402。モデルごとに条件が違い得る）。次の候補を試す
-            log.warn(`[chat] Gemini のモデルが使えません。次の候補を試します: ${describe(e, model)}`);
+            log.warn(`[${logTag}] Gemini のモデルが使えません。次の候補を試します: ${describe(e, model)}`);
             continue;
           }
-          log.warn(`[chat] Gemini の呼び出しに失敗: ${describe(e, model)}`);
+          log.warn(`[${logTag}] Gemini の呼び出しに失敗: ${describe(e, model)}`);
           throw e;
         }
       }

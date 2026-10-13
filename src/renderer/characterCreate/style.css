@@ -244,3 +244,19 @@ textarea {
 .line-foot .hint {
   margin: 2px 0 0;
 }
+
+/* Gemini でセリフを作る（Phase 14） */
+.generate {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  background: #f6f6f6;
+  border-radius: 4px;
+}
+.generate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.generate .hint {
+  margin: 6px 0 0;
+}

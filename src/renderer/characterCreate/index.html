@@ -63,17 +63,31 @@
         </div>
       </section>
 
-      <!-- セリフ（F-22・Phase 13）。通知の読み上げ文とアイドルトークの文。欄は app.js が案内（characterCreate:begin の linesGuide）から作る -->
+      <!-- セリフ（F-22・Phase 13）。通知の読み上げ文・アイドルトークの文・チャットの終了メッセージ（Phase 14）。
+           欄は app.js が案内（characterCreate:begin の linesGuide）から作る -->
       <details id="lines-section" class="lines">
-        <summary>セリフ（読み上げ・アイドルトーク）</summary>
+        <summary>セリフ（読み上げ・アイドルトーク・チャット）</summary>
         <p class="hint">
           1行に1文ずつ書きます。複数書くと、その中から順番を変えて選びます。空欄の種類は薄く表示している標準の文を使います。
           通知のセリフは読み上げだけに使い、吹き出しの表示は変わりません。
         </p>
+        <!-- Gemini でセリフの案を作る（Phase 14）。案は欄に入るだけで、保存するまで反映されない -->
+        <div class="generate">
+          <div class="generate-row">
+            <button id="generate" type="button" disabled>Gemini でセリフを作る</button>
+            <span id="generate-status" class="status" role="status"></span>
+          </div>
+          <p class="hint">
+            キャラクター名とキャラクター設定を Gemini に送り、すべての欄のセリフの案を作ります（30 秒ほどかかることがあります）。
+            案は保存するまで反映されません。気に入らない文は直したり消したりしてから保存してください。
+          </p>
+        </div>
         <h3>通知の読み上げ</h3>
         <div id="lines-notify"></div>
         <h3>アイドルトーク</h3>
         <div id="lines-idle"></div>
+        <h3>チャット</h3>
+        <div id="lines-chat"></div>
       </details>
 
       <div class="actions">

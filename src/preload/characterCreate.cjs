@@ -7,12 +7,15 @@ contextBridge.exposeInMainWorld('characterCreateApi', {
   pickFolder: (slot) => ipcRenderer.invoke('characterCreate:pick-folder', String(slot)),
   clearSlot: (slot) => ipcRenderer.invoke('characterCreate:clear-slot', String(slot)),
   // { displayName, fps: { [slot]: number }, voice, persona, lines }。フォルダは pickFolder で選んだもの
-  // lines（セリフ。F-22）は { notify: { [kind]: string }, idle: { [kind]: string } }（各欄の文字列。分割・検証はメイン）
+  // lines（セリフ。F-22）は { notify: { [kind]: string }, idle: { [kind]: string }, chat: { closing: string } }（各欄の文字列。分割・検証はメイン）
   importCharacter: (req) => ipcRenderer.invoke('characterCreate:import', req),
   // 編集の保存。{ displayName, slots: { [slot]: 'keep' | 'picked' | 'none' }, fps, voice, persona, lines }
   save: (id, req) => ipcRenderer.invoke('characterCreate:save', String(id), req),
   // VOICEVOX の話者一覧（声の選択用）。{ available, speakers: [{ name, styles: [{ id, name }] }] }
   listSpeakers: () => ipcRenderer.invoke('characterCreate:list-speakers'),
+  // セリフの案を Gemini で作る（Phase 14）。{ displayName, persona, replace }。保存はしない
+  // 戻り値：{ ok: true, lines, missing } | { ok: false, canceled: true } | { ok: false, reason, message }
+  generateLines: (req) => ipcRenderer.invoke('characterCreate:generate-lines', req),
   list: () => ipcRenderer.invoke('characterCreate:list'),
   remove: (id) => ipcRenderer.invoke('characterCreate:remove', String(id)),
   onChanged: (callback) => {

@@ -22,7 +22,7 @@ const abortError = (signal) => signal?.reason ?? new DOMException('aborted', 'Ab
 export function createFakeGemini({ replies = ['こんにちは。今日もいい天気だね。'] } = {}) {
   /** [{ url, method, headers, body }] */
   const calls = [];
-  /** 次の1回だけの挙動（先頭から消費）。{ type: 'http'|'network'|'block'|'empty'|'hang', ... } */
+  /** 次の1回だけの挙動（先頭から消費）。{ type: 'http'|'network'|'block'|'empty'|'hang'|'truncated', ... } */
   const queue = [];
   let replyIndex = 0;
 
@@ -43,6 +43,9 @@ export function createFakeGemini({ replies = ['こんにちは。今日もいい
           return json({ promptFeedback: { blockReason: 'SAFETY' } });
         case 'empty':
           return json({ candidates: [] });
+        case 'truncated':
+          // 出力の上限で途中まで（セリフの生成の JSON が閉じていない形のテスト用）
+          return json({ candidates: [{ content: { role: 'model', parts: [{ text: next.text }] }, finishReason: 'MAX_TOKENS' }] });
         case 'hang':
           // 応答を返さない（タイムアウト・中止のテスト用）。abort されたら拒否する
           await new Promise((_, reject) => init.signal?.addEventListener('abort', () => reject(abortError(init.signal))));
@@ -79,6 +82,10 @@ export function createFakeGemini({ replies = ['こんにちは。今日もいい
     },
     hangNext() {
       queue.push({ type: 'hang' });
+    },
+    /** 次の1回を、出力の上限（MAX_TOKENS）で途中まで返す。 */
+    truncatedNext(text) {
+      queue.push({ type: 'truncated', text });
     },
   };
 }

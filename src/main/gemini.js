@@ -4,8 +4,10 @@
 //   往復数（turn）は「Gemini から実際の応答が得られた往復」だけを数える。失敗（フォールバック応答）は往復を消費せず、履歴にも積まない
 //   （通信エラーで残り回数が減らないように）。表示のカウンターは「残り {max − turn}/{max} 往復」（開始時 10/10 → 終了時 0/10：v5.8）。
 //   maxTurns 往復目の応答には、定型の終了メッセージ（closing）を付けて final: true を返す。呼び出し側は送信・読み上げの後にウィンドウを閉じる。
-//   終了メッセージは生成せず定型にする（オフラインでも確実に終わらせるため）。
+//   終了メッセージはその場で生成せず、用意した文を使う（オフラインでも確実に終わらせるため）。Phase 14 からはキャラクターのセリフ
+//   （characterLines.js の chat.closing。無ければ CLOSING_MESSAGE）から、会話の開始時にシステムプロンプトと一緒に決める。
 
+import { DEFAULT_CHAT_LINES } from './characterLines.js';
 import { SYSTEM_PROMPT } from './chatPersona.js';
 
 export const CHAT_DEFAULTS = Object.freeze({ maxTurns: 10, showRemainingCount: true });
@@ -14,7 +16,8 @@ export const MAX_TURNS = 50;
 /** ユーザー入力の最大長（Gemini への送信量と表示を抑える）。 */
 export const MAX_INPUT_LENGTH = 500;
 
-export const CLOSING_MESSAGE = '今日はこのくらいにしようか。またお話ししようね。';
+/** 終了メッセージの既定（キャラクターのセリフ chat.closing が無いとき） */
+export const CLOSING_MESSAGE = DEFAULT_CHAT_LINES.closing[0];
 
 /** 失敗時のフォールバック応答（7.3）。 */
 export const FALLBACK_MESSAGES = Object.freeze({
@@ -60,10 +63,23 @@ export function normalizeChatConfig(raw) {
  * @param {string} [deps.systemPrompt] 固定のシステムプロンプト
  * @param {() => string} [deps.getSystemPrompt] 会話ごとのシステムプロンプト（Phase 8：選択中のキャラクターの人格）。
  *   作成時と reset（新しい会話の開始）のたびに呼んで確定する。会話の途中でキャラクターが変わっても混ざらない
+ * @param {() => string | null} [deps.getClosingMessage] 会話ごとの終了メッセージ（Phase 14：選択中のキャラクターのセリフ）。
+ *   getSystemPrompt と同じく作成時と reset のたびに呼んで確定する。空・null なら CLOSING_MESSAGE
  */
-export function createChatSession({ client, getMaxTurns = () => CHAT_DEFAULTS.maxTurns, systemPrompt = SYSTEM_PROMPT, getSystemPrompt = null }) {
+export function createChatSession({
+  client,
+  getMaxTurns = () => CHAT_DEFAULTS.maxTurns,
+  systemPrompt = SYSTEM_PROMPT,
+  getSystemPrompt = null,
+  getClosingMessage = null,
+}) {
   const currentPrompt = () => (getSystemPrompt ? getSystemPrompt() : systemPrompt);
+  const currentClosing = () => {
+    const m = getClosingMessage?.();
+    return typeof m === 'string' && m.trim() !== '' ? m : CLOSING_MESSAGE;
+  };
   let prompt = currentPrompt();
+  let closing = currentClosing();
   /** @type {{ role: 'user' | 'model', text: string }[]} */
   let history = [];
   let turn = 0;
@@ -107,7 +123,7 @@ export function createChatSession({ client, getMaxTurns = () => CHAT_DEFAULTS.ma
         turn += 1;
         const final = turn >= max;
         if (final) finished = true;
-        return { ok: true, reply, closing: final ? CLOSING_MESSAGE : null, ...view(), final, fallback: false };
+        return { ok: true, reply, closing: final ? closing : null, ...view(), final, fallback: false };
       } catch (e) {
         if (e?.kind === 'aborted' || epoch !== myEpoch) return { ok: false, reason: 'aborted' };
         // 往復は消費しない・履歴にも積まない。種別ごとのフォールバック応答を返す
@@ -134,6 +150,7 @@ export function createChatSession({ client, getMaxTurns = () => CHAT_DEFAULTS.ma
       turn = 0;
       max = getMaxTurns();
       prompt = currentPrompt();
+      closing = currentClosing();
       busy = false;
       finished = false;
     },
