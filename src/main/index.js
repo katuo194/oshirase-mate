@@ -70,6 +70,7 @@ import { createGeminiKey } from './geminiKey.js';
 import { createGeminiClient } from './geminiClient.js';
 import { createChatSession } from './gemini.js';
 import { createChatController } from './chatController.js';
+import { createLineGenerator } from './lineGenerator.js';
 import { createIdleTalk } from './idleTalk.js';
 import { createPhrasePicker } from './phrasePicker.js';
 
@@ -291,6 +292,11 @@ if (!app.requestSingleInstanceLock()) {
       log,
     });
     registerGeminiIpc({ getSettingsWindow, geminiKey });
+    // セリフの生成（Phase 14）。作成・編集画面のボタンを押したときだけ呼ぶ。モデルの切り替えの記憶はチャットと別に持つ
+    const lineGenerator = createLineGenerator({
+      client: createGeminiClient({ fetch: googleFetch, getApiKey: () => geminiKey.getKey(), logTag: 'lines', log }),
+      log,
+    });
 
     // キャラクター（F-17）。取り込み・一覧・削除は characterImport.js、状態→モーションの解決は characterMotions.js
     const charactersDir = path.join(app.getPath('userData'), 'characters');
@@ -337,6 +343,20 @@ if (!app.requestSingleInstanceLock()) {
         });
         return r.response === 0;
       },
+      isGeminiConfigured: () => geminiKey.isConfigured(),
+      generateLines: (req) => lineGenerator.generate(req),
+      confirmReplaceLines: async (win) => {
+        const r = await dialog.showMessageBox(win, {
+          type: 'question',
+          buttons: ['置き換える', 'キャンセル'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'セリフを作る',
+          message: '書いてあるセリフを、Gemini で作った案に置き換えますか？',
+          detail: 'キャラクター名とキャラクター設定を Gemini に送ります。置き換えた後も、保存するまでは反映されません（保存せずに閉じれば元のままです）。',
+        });
+        return r.response === 0;
+      },
     });
     geminiKey.events.on('change', () => tray?.refreshMenu()); // 「話しかける」の有効・無効をトレイメニューへ反映
     void geminiKey.init().then(() => tray?.refreshMenu());
@@ -358,6 +378,8 @@ if (!app.requestSingleInstanceLock()) {
       session: createChatSession({
         // 会話の開始時（チャットウィンドウを開いたとき）に選択中のキャラクターの人格で確定する（3.5・v5.9）
         getSystemPrompt: () => buildSystemPrompt(activeCharacter),
+        // 終了メッセージも同じく会話の開始時に、選択中のキャラクターのセリフ（無ければ定型文）から選ぶ（Phase 14）
+        getClosingMessage: () => phrasePicker.pickChat('closing'),
         client: createGeminiClient({ fetch: googleFetch, getApiKey: () => geminiKey.getKey(), log }),
         getMaxTurns: () => getChatConfig().maxTurns,
       }),

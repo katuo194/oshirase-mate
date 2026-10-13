@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeGemini } from '../mocks/gemini/index.js';
-import { GEMINI_MODELS, GeminiError, classifyHttpFailure, createGeminiClient, extractText, safeApiMessage } from '../src/main/geminiClient.js';
+import { GEMINI_MODELS, GeminiError, MAX_OUTPUT_TOKENS, classifyHttpFailure, createGeminiClient, extractText, safeApiMessage } from '../src/main/geminiClient.js';
 
 const KEY = 'AIzaSyFAKE-KEY-FOR-TESTS-0123456789abcd';
 const req = { systemPrompt: 'SYS', contents: [{ role: 'user', text: 'こんにちは' }] };
@@ -55,6 +55,23 @@ describe('geminiClient / 成功', () => {
     expect(call.url).not.toContain(KEY);
     expect(call.url).not.toContain('key=');
     expect(JSON.stringify(call.body)).not.toContain(KEY);
+  });
+
+  it('generationConfig は既定に上書きして送る（セリフの生成の JSON 出力：Phase 14）。渡さなければ既定のまま', async () => {
+    const { gm, client } = setup({ replies: ['{}'] });
+    await client.generate({ ...req, generationConfig: { maxOutputTokens: 8192, responseMimeType: 'application/json' } });
+    expect(gm.calls[0].body.generationConfig).toEqual({ maxOutputTokens: 8192, temperature: 0.9, responseMimeType: 'application/json' });
+    await client.generate(req);
+    expect(gm.calls[1].body.generationConfig).toEqual({ maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.9 });
+  });
+
+  it('ログの頭は logTag で変えられる（既定は [chat]）', async () => {
+    const gm = createFakeGemini();
+    const log = { info: vi.fn(), warn: vi.fn() };
+    const client = createGeminiClient({ fetch: gm.fetch, getApiKey: async () => KEY, logTag: 'lines', log });
+    gm.failNext(503);
+    await kindOf(client.generate(req));
+    expect(log.warn.mock.calls[0][0]).toMatch(/^\[lines\] /);
   });
 
   it('複数の parts は連結し、前後の空白を除く', async () => {
@@ -138,6 +155,18 @@ describe('geminiClient / タイムアウト・中止', () => {
     const p = kindOf(client.generate(req));
     await vi.advanceTimersByTimeAsync(15000);
     expect(await p).toBe('timeout');
+  });
+
+  it('上限時間は呼び出しごとに timeoutMs で変えられる', async () => {
+    const { gm, client } = setup({ timeoutMs: 15000 });
+    gm.hangNext();
+    let kind = null;
+    const p = kindOf(client.generate({ ...req, timeoutMs: 60000 })).then((k) => (kind = k));
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(kind).toBeNull(); // 既定の 15 秒では切れない
+    await vi.advanceTimersByTimeAsync(45000);
+    await p;
+    expect(kind).toBe('timeout');
   });
 
   it('呼び出し側が中止したら aborted（失敗ログは出さない）', async () => {

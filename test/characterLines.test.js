@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHAT_COUNT_MAX,
+  CHAT_LINE_MAX,
+  DEFAULT_CHAT_LINES,
   DEFAULT_IDLE_LINES,
   DEFAULT_NOTIFY_LINES,
   IDLE_COUNT_MAX,
@@ -20,10 +23,11 @@ import { PHRASE_SETS } from '../src/main/idleTalkPhrases.js';
 
 const ok = (value) => ({ ok: true, value });
 /** emptyLines に一部の種類だけを入れたもの */
-const withLines = ({ notify = {}, idle = {} }) => {
+const withLines = ({ notify = {}, idle = {}, chat = {} }) => {
   const v = emptyLines();
   Object.assign(v.notify, notify);
   Object.assign(v.idle, idle);
+  Object.assign(v.chat, chat);
   return v;
 };
 
@@ -107,6 +111,36 @@ describe('characterLines / 入力の検証（validateLines）', () => {
     );
     expect(describeLinesError({ code: 'lines_too_long', group: 'idle', kind: 'normal', line: 2 })).toContain(`${IDLE_LINE_MAX} 文字以内`);
     expect(describeLinesError({ code: 'lines_too_many', group: 'idle', kind: 'morning', max: 10 })).toBe('セリフ「朝の挨拶」：10 文までにしてください');
+  });
+});
+
+describe('characterLines / チャットの終わり（chat.closing・Phase 14）', () => {
+  it('空の lines に chat.closing がある', () => {
+    expect(emptyLines().chat).toEqual({ closing: [] });
+  });
+
+  it(`1文 ${CHAT_LINE_MAX} 字まで・${CHAT_COUNT_MAX.closing} 文まで・差し込みなし`, () => {
+    expect(validateLines({ chat: { closing: 'またね\nばいばい' } })).toEqual(ok(withLines({ chat: { closing: ['またね', 'ばいばい'] } })));
+    expect(validateLines({ chat: { closing: 'あ'.repeat(CHAT_LINE_MAX + 1) } }).error).toMatchObject({ code: 'lines_too_long', group: 'chat', kind: 'closing', line: 1 });
+    const six = Array.from({ length: CHAT_COUNT_MAX.closing + 1 }, (_, i) => `またね${i}`).join('\n');
+    expect(validateLines({ chat: { closing: six } }).error).toMatchObject({ code: 'lines_too_many', group: 'chat', max: CHAT_COUNT_MAX.closing });
+    expect(validateLines({ chat: { closing: '{title}またね' } }).error).toMatchObject({ code: 'lines_unknown_placeholder', group: 'chat', kind: 'closing' });
+  });
+
+  it('エラーの文', () => {
+    expect(describeLinesError({ code: 'lines_too_long', group: 'chat', kind: 'closing', line: 2 })).toBe(
+      `セリフ「チャットの終わり」の 2 行目：${CHAT_LINE_MAX} 文字以内にしてください`,
+    );
+    expect(describeLinesError({ code: 'lines_unknown_placeholder', group: 'chat', kind: 'closing', line: 1, placeholder: 'title' })).toBe(
+      'セリフ「チャットの終わり」の 1 行目：{title} は使えない差し込みです（チャットの終わりには差し込みを使えません）',
+    );
+  });
+
+  it('chat の無い古い lines も読め（空）、設定が無ければ定型の終了メッセージを使う', () => {
+    expect(parseLines({ notify: {}, idle: {} }).chat).toEqual({ closing: [] });
+    expect(parseLines({ chat: { closing: ['またね', '{x}', 3] } }).chat.closing).toEqual(['またね']);
+    expect(effectiveLines(null).chat).toEqual(DEFAULT_CHAT_LINES);
+    expect(effectiveLines(withLines({ chat: { closing: ['またね'] } })).chat.closing).toEqual(['またね']);
   });
 });
 
@@ -201,7 +235,7 @@ describe('characterLines / 差し込みの展開（renderSpeech・isUsableLine�
 });
 
 describe('characterLines / 画面の案内（linesGuide）', () => {
-  it('7種類の欄の名前・既定の文・使える差し込み・上限', () => {
+  it('8種類の欄の名前・既定の文・使える差し込み・上限', () => {
     const g = linesGuide();
     expect(g.map((d) => `${d.group}.${d.kind}`)).toEqual([
       'notify.calendar',
@@ -211,9 +245,11 @@ describe('characterLines / 画面の案内（linesGuide）', () => {
       'idle.morning',
       'idle.bedtime',
       'idle.normal',
+      'chat.closing',
     ]);
     expect(g[0]).toMatchObject({ label: '予定（時刻あり）', defaults: ['予定のお知らせです。{time}から、{title}'], placeholders: ['title', 'time'], countMax: 10 });
     expect(g[6]).toMatchObject({ placeholders: [], lineMax: IDLE_LINE_MAX, countMax: 30 });
     expect(g[6].defaults).toHaveLength(20);
+    expect(g[7]).toMatchObject({ label: 'チャットの終わり', defaults: [...DEFAULT_CHAT_LINES.closing], placeholders: [], lineMax: CHAT_LINE_MAX, countMax: 5 });
   });
 });

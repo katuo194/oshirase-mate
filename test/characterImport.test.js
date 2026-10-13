@@ -529,6 +529,19 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
     expect(await repo.get(m.id)).toEqual(m);
   });
 
+  it('チャットの終わり（chat.closing・Phase 14）も保存でき、chat の無い manifest は空として読む', async () => {
+    const repo = createRepo({ now: clock });
+    const m = await imported(repo, { lines: { chat: { closing: 'またね\nばいばい' } } });
+    expect(m.lines.chat.closing).toEqual(['またね', 'ばいばい']);
+    expect(await repo.get(m.id)).toEqual(m);
+
+    const file = path.join(rootDir, m.id, 'manifest.json');
+    const raw = JSON.parse(await fs.readFile(file, 'utf8'));
+    delete raw.lines.chat;
+    await fs.writeFile(file, JSON.stringify(raw));
+    expect((await repo.get(m.id)).lines.chat).toEqual({ closing: [] });
+  });
+
   it('不正なセリフは取り込まない（何も作らない）', async () => {
     const repo = createRepo();
     const rest = await makeFolder('rest', 1);

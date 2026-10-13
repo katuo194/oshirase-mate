@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BEDTIME_PHRASES, NORMAL_PHRASES } from '../src/main/idleTalkPhrases.js';
-import { DEFAULT_NOTIFY_LINES } from '../src/main/characterLines.js';
+import { DEFAULT_CHAT_LINES, DEFAULT_NOTIFY_LINES } from '../src/main/characterLines.js';
 import { createBag, createPhrasePicker } from '../src/main/phrasePicker.js';
 
 /** 固定シードの乱数（mulberry32）。テストを再現可能にする。 */
@@ -113,5 +113,13 @@ describe('phrasePicker / キャラクターのセリフ（F-22）', () => {
     expect(picker.pickNotify('gmail')).toBe(DEFAULT_NOTIFY_LINES.gmail[0]);
     expect(NORMAL_PHRASES).toContain(picker.pick('normal'));
     expect(() => picker.pickNotify('slack')).toThrow();
+  });
+
+  it('チャットの終了メッセージ（Phase 14）もキャラクターの文から選び、無ければ定型文', () => {
+    const picker = createPhrasePicker({ rng: seeded(4), lines: { ...lines, chat: { closing: ['またねA', 'またねB'] } } });
+    const round = [picker.pickChat('closing'), picker.pickChat('closing')];
+    expect(new Set(round)).toEqual(new Set(['またねA', 'またねB']));
+    expect(createPhrasePicker({ rng: seeded(4), lines }).pickChat('closing')).toBe(DEFAULT_CHAT_LINES.closing[0]);
+    expect(() => picker.pickChat('opening')).toThrow();
   });
 });

@@ -3,7 +3,9 @@ import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
 import { DEFAULT_CHARACTER_ID, SLOT_NAMES, characterFrameUrl, describeImportError, isValidCharacterId } from './characterImport.js';
 import { isLinesError, linesGuide } from './characterLines.js';
+import { validatePersona } from './characterProfile.js';
 import { externalUrlFor } from './externalLinks.js';
+import { describeGenerateError } from './lineGenerator.js';
 
 /** 既定キャラクターの表示名（選択画面・編集画面） */
 const DEFAULT_CHARACTER_NAME = '黄色い丸（既定）';
@@ -336,7 +338,7 @@ const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== nul
 /**
  * キャラクター選択画面・作成／編集画面用IPC（F-17・3.6・v5.9）。それぞれ自分のウィンドウからの呼び出しだけを受け付ける。
  * 選択画面：character:list / character:select / character:open-create / character:open-edit、一覧が変わるたびに character:changed
- * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / list / remove / list-speakers、
+ * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / list / remove / list-speakers / generate-lines、
  *                一覧が変わるたびに characterCreate:changed
  * 選んだフォルダのフルパスはメインだけが持ち（スロット名に紐付け）、レンダラーにはフォルダ名（末尾）と検証結果だけを返す。
  * @param {object} opts
@@ -349,6 +351,9 @@ const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== nul
  * @param {(win: Electron.BrowserWindow, displayName: string) => Promise<boolean>} opts.confirmRemove 削除の確認
  * @param {() => Promise<{ name: string, styles: { id: number, name: string }[] }[]>} opts.listSpeakers VOICEVOX の話者一覧
  * @param {(id: string) => void} opts.onCharacterUpdated キャラクターの画像・声・設定が変わった（選択中なら反映し直す）
+ * @param {() => boolean} opts.isGeminiConfigured Gemini API キーが設定済みか（セリフの生成：Phase 14）
+ * @param {ReturnType<import('./lineGenerator.js').createLineGenerator>['generate']} opts.generateLines セリフの案を作る
+ * @param {(win: Electron.BrowserWindow) => Promise<boolean>} opts.confirmReplaceLines 書いてあるセリフを置き換えてよいかの確認
  */
 export function registerCharacterIpc({
   getCharacterWindow,
@@ -360,6 +365,9 @@ export function registerCharacterIpc({
   confirmRemove,
   listSpeakers,
   onCharacterUpdated,
+  isGeminiConfigured,
+  generateLines,
+  confirmReplaceLines,
 }) {
   const fromSelect = senderCheck(getCharacterWindow);
   const fromCreate = senderCheck(getCharacterCreateWindow);
@@ -373,6 +381,10 @@ export function registerCharacterIpc({
 
   /** 作成／編集画面で選んだフォルダ。スロット名 → { dir, frameCount } */
   let picked = {};
+  /** 作成／編集画面で編集中のキャラクター ID（作成なら ''）。セリフの生成で黄色い丸かを決める */
+  let editingId = '';
+  /** セリフの生成中（中止用）。同時に走らせるのは1件だけ */
+  let generating = null;
 
   async function broadcast() {
     const view = await list();
@@ -414,20 +426,24 @@ export function registerCharacterIpc({
    * 画面を開いたとき。前回選んだフォルダを忘れ、モード（作成／編集）と編集対象の今の値を返す。
    * 声の欄は版によらず常に出す（v5.11。話者を選べるかは characterCreate:list-speakers の available で決まる）。
    * linesGuide はセリフ欄（F-22）の案内（種類ごとの既定の文・使える差し込み・上限）。
-   * @returns {{ mode: 'create', linesGuide } |
-   *   { mode: 'edit', linesGuide, character: { id, displayName, builtin, slots, voice, persona, lines } } |
+   * canGenerate は「Gemini でセリフを作る」を押せるか（API キーが設定済みか。Phase 14）。
+   * @returns {{ mode: 'create', linesGuide, canGenerate } |
+   *   { mode: 'edit', linesGuide, canGenerate, character: { id, displayName, builtin, slots, voice, persona, lines } } |
    *   { mode: 'missing' }}
    */
   ipcMain.handle('characterCreate:begin', async (e, editId) => {
     guardCreate(e);
     picked = {};
+    editingId = typeof editId === 'string' ? editId : '';
     const guide = linesGuide();
-    if (typeof editId !== 'string' || editId === '') return { mode: 'create', linesGuide: guide };
+    const canGenerate = isGeminiConfigured();
+    if (typeof editId !== 'string' || editId === '') return { mode: 'create', linesGuide: guide, canGenerate };
     if (editId === DEFAULT_CHARACTER_ID) {
       const profile = await repository.getDefaultProfile();
       return {
         mode: 'edit',
         linesGuide: guide,
+        canGenerate,
         character: { id: DEFAULT_CHARACTER_ID, displayName: DEFAULT_CHARACTER_NAME, builtin: true, slots: {}, ...profile },
       };
     }
@@ -436,8 +452,46 @@ export function registerCharacterIpc({
     return {
       mode: 'edit',
       linesGuide: guide,
+      canGenerate,
       character: { id: m.id, displayName: m.displayName, builtin: false, slots: m.slots, voice: m.voice, persona: m.persona, lines: m.lines },
     };
+  });
+
+  /**
+   * セリフの案を Gemini で作る（Phase 14）。保存はしない（画面が欄に入れ、ユーザーが保存する）。
+   * req：{ displayName, persona（画面にいま書いてある値）, replace（書いてある欄があるか。true なら置き換えの確認を出す） }
+   * 送るのはキャラクター名とキャラクター設定だけ。ウィンドウを閉じたら中止する。
+   * @returns {{ ok: true, lines, missing: string[] } | { ok: false, canceled: true } | { ok: false, reason: string, message: string }}
+   *   missing は使える文が作れなかった種類（'notify.calendar' など。画面はその欄を変えない）
+   */
+  ipcMain.handle('characterCreate:generate-lines', async (e, req) => {
+    guardCreate(e);
+    const fail = (reason) => ({ ok: false, reason, message: describeGenerateError(reason) });
+    if (generating) return fail('busy');
+    if (!isGeminiConfigured()) return fail('not_configured');
+    const persona = validatePersona(req?.persona);
+    if (!persona.ok) return fail('invalid_persona');
+    const win = getCharacterCreateWindow();
+    if (req?.replace === true && !(await confirmReplaceLines(win))) return { ok: false, canceled: true };
+    if (generating) return fail('busy'); // 確認の間にもう一度押された
+
+    const controller = new AbortController();
+    generating = controller;
+    const onClosed = () => controller.abort();
+    win?.once('closed', onClosed);
+    try {
+      const builtin = editingId === DEFAULT_CHARACTER_ID;
+      const r = await generateLines({
+        builtin,
+        displayName: !builtin && typeof req?.displayName === 'string' ? req.displayName : '',
+        persona: persona.value,
+        signal: controller.signal,
+      });
+      return r.ok ? { ok: true, lines: r.lines, missing: r.missing } : fail(r.reason);
+    } finally {
+      generating = null;
+      if (win && !win.isDestroyed()) win.removeListener('closed', onClosed);
+    }
   });
 
   ipcMain.handle('characterCreate:pick-folder', async (e, slot) => {

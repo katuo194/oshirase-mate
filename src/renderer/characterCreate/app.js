@@ -23,6 +23,8 @@ const speakerEl = $('speaker');
 const speedEl = $('speed');
 const pitchEl = $('pitch');
 const personaEl = $('persona');
+const generateEl = $('generate');
+const generateStatusEl = $('generate-status');
 
 const editId = new URLSearchParams(location.search).get('edit');
 /** 'create' | 'edit' */
@@ -30,6 +32,9 @@ let mode = 'create';
 /** 編集中のキャラクター（begin の値） */
 let editing = null;
 let busy = false;
+/** Gemini でセリフを作れるか（API キーが設定済み）と、作っている最中か（Phase 14） */
+let canGenerate = false;
+let generating = false;
 
 /**
  * スロットの行の状態。
@@ -55,13 +60,14 @@ const isBuiltinEdit = () => mode === 'edit' && editing?.builtin === true;
 const personaLength = () => [...personaEl.value.trim()].length;
 
 function updateSubmit() {
-  let ok = !busy && personaLength() <= PERSONA_MAX && linesWithinCount();
+  let ok = !busy && !generating && personaLength() <= PERSONA_MAX && linesWithinCount();
   if (!isBuiltinEdit()) {
     ok &&= nameEl.value.trim() !== '';
     ok &&= SLOTS.filter((s) => s.required).every((s) => rows[s.slot].state !== 'none');
     ok &&= SLOTS.every((s) => rows[s.slot].state === 'none' || fpsValue(s.slot) !== null);
   }
   submitEl.disabled = !ok;
+  generateEl.disabled = !canGenerate || busy || generating || personaLength() > PERSONA_MAX;
 }
 
 // ---- モーションの行 ----
@@ -280,16 +286,19 @@ function buildLineFields(guide) {
     foot.className = 'line-foot';
     const hint = document.createElement('span');
     hint.className = 'hint';
-    hint.textContent =
-      def.group === 'notify'
-        ? `${def.placeholders.map((p) => PLACEHOLDER_HELP[p] ?? `{${p}}`).join('、')}。差し込みを除いて1文${def.lineMax}文字まで。`
-        : `1文${def.lineMax}文字まで。差し込みは使えません。`;
+    if (def.group === 'notify') {
+      hint.textContent = `${def.placeholders.map((p) => PLACEHOLDER_HELP[p] ?? `{${p}}`).join('、')}。差し込みを除いて1文${def.lineMax}文字まで。`;
+    } else if (def.group === 'chat') {
+      hint.textContent = `チャットが回数の上限で終わるときに使います。1文${def.lineMax}文字まで。差し込みは使えません。`;
+    } else {
+      hint.textContent = `1文${def.lineMax}文字まで。差し込みは使えません。`;
+    }
     const count = document.createElement('span');
     count.className = 'count';
     foot.append(hint, count);
 
     wrap.append(label, textarea, foot);
-    $(def.group === 'notify' ? 'lines-notify' : 'lines-idle').append(wrap);
+    $(`lines-${def.group}`).append(wrap);
 
     const field = { def, textarea, count };
     lineFields[lineFieldKey(def)] = field;
@@ -313,7 +322,7 @@ function setLines(lines) {
 
 /** 送るセリフ。各欄の文字列のまま送り、行の分割・検証はメインが行う（エラーに何行目かを入れるため） */
 function linesValue() {
-  const out = { notify: {}, idle: {} };
+  const out = { notify: {}, idle: {}, chat: {} };
   for (const field of Object.values(lineFields)) out[field.def.group][field.def.kind] = field.textarea.value;
   return out;
 }
@@ -326,6 +335,55 @@ function showLineError(fieldKey) {
   field.textarea.classList.add('error');
   field.textarea.focus();
 }
+
+// ---- Gemini でセリフの案を作る（Phase 14）。案は欄に入れるだけで、保存は「保存／取り込む」で行う ----
+
+const GENERATE_UNAVAILABLE = 'Gemini の API キーが未設定のため使えません。設定画面の「チャット」で入力してから、この画面を開き直してください。';
+
+function setLineFieldsDisabled(disabled) {
+  for (const field of Object.values(lineFields)) field.textarea.disabled = disabled;
+}
+
+generateEl.addEventListener('click', async () => {
+  generating = true;
+  setLineFieldsDisabled(true);
+  updateSubmit();
+  setStatus(generateStatusEl, 'セリフを作っています…');
+  try {
+    // 書いてある欄が1つでもあれば、置き換えてよいかをメインが確かめる
+    const replace = Object.values(lineFields).some((f) => f.textarea.value.trim() !== '');
+    const r = await window.characterCreateApi.generateLines({ displayName: nameEl.value, persona: personaEl.value, replace });
+    if (r.ok) {
+      const missing = Array.isArray(r.missing) ? r.missing : [];
+      for (const [key, field] of Object.entries(lineFields)) {
+        const generated = r.lines?.[field.def.group]?.[field.def.kind];
+        if (missing.includes(key) || !Array.isArray(generated)) continue; // 作れなかった欄は元のまま
+        field.textarea.value = generated.join('\n');
+        field.textarea.classList.remove('error');
+        syncLineCount(field);
+      }
+      const labels = missing.map((k) => lineFields[k]?.def.label).filter(Boolean);
+      setStatus(
+        generateStatusEl,
+        labels.length > 0
+          ? `案を入れました。「${labels.join('」「')}」は作れなかったため元のままです。確かめてから保存してください。`
+          : '案を入れました。確かめてから保存してください。',
+        'ok',
+      );
+    } else if (r.canceled) {
+      setStatus(generateStatusEl, '');
+    } else {
+      setStatus(generateStatusEl, r.message, 'error');
+    }
+  } catch (e) {
+    setStatus(generateStatusEl, 'セリフを作れませんでした', 'error');
+    console.warn(e);
+  } finally {
+    generating = false;
+    setLineFieldsDisabled(false);
+    updateSubmit();
+  }
+});
 
 // ---- 送信（作成＝取り込み／編集＝保存） ----
 
@@ -352,6 +410,7 @@ submitEl.addEventListener('click', async () => {
         personaEl.value = '';
         resetRows();
         setLines(null);
+        setStatus(generateStatusEl, '');
         await loadSpeakers(null);
         syncPersonaCount();
         setStatus(submitStatusEl, `「${r.displayName}」を取り込みました。キャラクター選択画面から選べます。`, 'ok');
@@ -437,6 +496,8 @@ async function start() {
   }
 
   mode = r.mode;
+  canGenerate = r.canGenerate === true;
+  if (!canGenerate) setStatus(generateStatusEl, GENERATE_UNAVAILABLE);
   buildLineFields(r.linesGuide ?? []);
   setLines(mode === 'edit' ? r.character.lines : null);
   if (mode === 'edit') {

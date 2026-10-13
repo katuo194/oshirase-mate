@@ -78,6 +78,20 @@ describe('gemini / 往復カウンター（残り n/10）', () => {
     expect(await s.send('3')).toMatchObject({ turn: 3, max: 3, remaining: 0, final: true, closing: CLOSING_MESSAGE });
   });
 
+  it('終了メッセージは getClosingMessage（キャラクターのセリフ：Phase 14）で、会話の開始時と reset のときに決まる', async () => {
+    const picks = ['またねA', 'またねB'];
+    let n = 0;
+    const s = createChatSession({ client: fakeClient(['r1', 'r2', 'r3']), getMaxTurns: () => 1, getClosingMessage: () => picks[n++] });
+    expect(await s.send('1')).toMatchObject({ final: true, closing: 'またねA' });
+    s.reset();
+    expect(await s.send('2')).toMatchObject({ final: true, closing: 'またねB' });
+    expect(n).toBe(2); // 送信のたびには呼ばない
+
+    // 空・null なら定型文
+    const empty = createChatSession({ client: fakeClient(['r']), getMaxTurns: () => 1, getClosingMessage: () => '  ' });
+    expect(await empty.send('1')).toMatchObject({ closing: CLOSING_MESSAGE });
+  });
+
   it('reset で往復数 0・履歴なし（残り 10/10）の新規の会話に戻る', async () => {
     const client = fakeClient(['a', 'b']);
     const s = createChatSession({ client });
