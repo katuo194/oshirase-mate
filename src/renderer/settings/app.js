@@ -324,9 +324,13 @@ function renderVoice(v) {
       error: '読み上げに失敗しました',
     }[v.status] ?? '不明';
 
+  // 同梱キャラクターの固定ボイス（F-23）：VOICEVOX が無くても、録音してある文は読み上げる
+  const fixed = typeof v.fixedVoiceCredit === 'string' && v.fixedVoiceCredit !== '';
   const detail =
     v.status === 'unavailable'
-      ? 'VOICEVOXが見つかりません。読み上げを使うには、VOICEVOXをインストールして起動してください（今は読み上げをスキップしています。読み上げ以外の機能はそのまま使えます）。'
+      ? fixed
+        ? 'VOICEVOXが見つかりません。このキャラクターは録音してある文だけを話します（件名などは読み上げません）。VOICEVOXを起動すると、すべて読み上げます。'
+        : 'VOICEVOXが見つかりません。読み上げを使うには、VOICEVOXをインストールして起動してください（今は読み上げをスキップしています。読み上げ以外の機能はそのまま使えます）。'
       : v.status === 'error'
         ? `${v.reason ?? ''}`
         : '';
@@ -334,8 +338,9 @@ function renderVoice(v) {
   voiceDetail.hidden = detail === '';
   voiceDetail.classList.toggle('error', detail !== '');
 
-  // クレジット表記（VOICEVOX 利用規約・7.2 ライセンス注意）
-  const credit = v.status === 'available' && v.speakerName ? `VOICEVOX:${v.speakerName.replace(/（.*）$/, '')}` : '';
+  // クレジット表記（VOICEVOX 利用規約・7.2 ライセンス注意）。接続中の話者、無ければ同梱キャラクターの録音の話者
+  const credit =
+    v.status === 'available' && v.speakerName ? `VOICEVOX:${v.speakerName.replace(/（.*）$/, '')}` : fixed ? v.fixedVoiceCredit : '';
   voiceCredit.textContent = credit ? `音声：${credit}` : '';
   voiceCredit.hidden = credit === '';
 }

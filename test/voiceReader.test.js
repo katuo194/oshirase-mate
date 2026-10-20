@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeVoicevox } from '../mocks/voicevox/index.js';
+import { clipFileName, createFixedVoice, parseVoiceIndex } from '../src/main/fixedVoice.js';
 import { createVoiceReader } from '../src/main/voiceReader.js';
 import { createVoicevox } from '../src/main/voicevox.js';
 
@@ -15,7 +16,7 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function setup({ muted = false, voice = 1.0, running = true } = {}) {
+function setup({ muted = false, voice = 1.0, running = true, fixedVoice = null, voiceConfig = { speakerId: 3, speedScale: 1.0, pitchScale: 0.0 } } = {}) {
   const vv = createFakeVoicevox({ running, wavMs: 1800 });
   const log = { info: vi.fn(), warn: vi.fn() };
   const settings = { muted, volume: { sfx: 0.8, voice } };
@@ -23,11 +24,12 @@ function setup({ muted = false, voice = 1.0, running = true } = {}) {
   const reader = createVoiceReader({
     voicevox: createVoicevox({ fetch: vv.fetch, log }),
     getSettings: () => settings,
-    getVoiceConfig: () => ({ speakerId: 3, speedScale: 1.0, pitchScale: 0.0 }),
+    getVoiceConfig: () => voiceConfig,
     dir: path.join(dir, 'tts'),
     fs: fsp,
     toUrl: (p) => `file://${p}`,
     randomId: () => `voice${++seq}`,
+    getFixedVoice: () => fixedVoice,
     log,
   });
   const files = () => (fs.existsSync(path.join(dir, 'tts')) ? fs.readdirSync(path.join(dir, 'tts')) : []);
@@ -171,5 +173,98 @@ describe('voiceReader / 中断・掃除', () => {
   it('cleanupDir() は tts/ が無くても落ちない', async () => {
     const { reader } = setup();
     expect(await reader.cleanupDir()).toBe(0);
+  });
+});
+
+describe('voiceReader / 同梱キャラクターの固定ボイス（F-23）', () => {
+  const VOICE = { speakerId: 3, speedScale: 1.0, pitchScale: 0.0 };
+  const recorded = ['おはようなのだ', '予定の時間なのだ'];
+  /** 録音のフォルダ（同梱のファイル。cancel で消えてはいけない） */
+  function fixedVoiceIn(voiceDir) {
+    fs.mkdirSync(voiceDir, { recursive: true });
+    for (const t of recorded) fs.writeFileSync(path.join(voiceDir, clipFileName(t, VOICE)), 'wav');
+    const index = parseVoiceIndex({
+      version: 1,
+      voice: VOICE,
+      clips: Object.fromEntries(recorded.map((t) => [t, { file: clipFileName(t, VOICE), durationMs: 1100 }])),
+    });
+    return createFixedVoice({ index, dir: voiceDir, fallbackLines: { calendar: ['予定の時間なのだ'] } });
+  }
+
+  it('読み上げる文の録音があれば、VOICEVOX に問い合わせずに録音を流す（起動していても）', async () => {
+    const voiceDir = path.join(dir, 'voice');
+    const { reader, vv, files } = setup({ voice: 0.6, fixedVoice: fixedVoiceIn(voiceDir) });
+    const v = await reader.prepare('idle1', 'おはようなのだ');
+    expect(v).toEqual({ url: `file://${path.join(voiceDir, clipFileName('おはようなのだ', VOICE))}`, filePath: null, durationMs: 1100, volume: 0.6 });
+    expect(vv.calls).toEqual([]);
+    expect(files()).toEqual([]); // tts/ にファイルを作らない
+    expect(reader.currentId()).toBe('idle1');
+  });
+
+  it('表示が終わっても（cancel）同梱の録音は消さない', async () => {
+    const voiceDir = path.join(dir, 'voice');
+    const { reader } = setup({ fixedVoice: fixedVoiceIn(voiceDir) });
+    await reader.prepare('idle1', 'おはようなのだ');
+    reader.cancel('idle1');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fs.readdirSync(voiceDir)).toHaveLength(recorded.length);
+    expect(reader.currentId()).toBeNull();
+  });
+
+  it('録音の無い文は VOICEVOX で合成する', async () => {
+    const { reader, vv } = setup({ fixedVoice: fixedVoiceIn(path.join(dir, 'voice')) });
+    const v = await reader.prepare('n1', '10時から会議なのだ', { speechKind: 'calendar' });
+    expect(v.url).toBe(`file://${path.join(dir, 'tts', 'voice1.wav')}`);
+    expect(vv.callsTo('/synthesis')).toHaveLength(1);
+  });
+
+  it('VOICEVOX が無ければ、通知は種類ごとの件名なしの録音で代わりに読み上げる', async () => {
+    const voiceDir = path.join(dir, 'voice');
+    const { reader, files } = setup({ running: false, fixedVoice: fixedVoiceIn(voiceDir) });
+    const v = await reader.prepare('n1', '10時から会議なのだ', { speechKind: 'calendar' });
+    expect(v).toMatchObject({ url: `file://${path.join(voiceDir, clipFileName('予定の時間なのだ', VOICE))}`, filePath: null, durationMs: 1100 });
+    expect(files()).toEqual([]);
+  });
+
+  it('合成に失敗した（VOICEVOX のエラー）ときも件名なしの録音を使う', async () => {
+    const { reader, vv } = setup({ fixedVoice: fixedVoiceIn(path.join(dir, 'voice')) });
+    vv.failNext('/synthesis', 500);
+    const v = await reader.prepare('n1', '10時から会議なのだ', { speechKind: 'calendar' });
+    expect(v?.durationMs).toBe(1100);
+  });
+
+  it('種類の文が無い・アイドルトーク（speechKind なし）・同梱キャラクターでないときは、今までどおり読み上げない', async () => {
+    {
+      const { reader } = setup({ running: false, fixedVoice: fixedVoiceIn(path.join(dir, 'voice')) });
+      expect(await reader.prepare('n1', 'メールなのだ', { speechKind: 'gmail' })).toBeNull();
+      expect(await reader.prepare('idle1', 'ひまなのだ')).toBeNull();
+    }
+    const { reader } = setup({ running: false });
+    expect(await reader.prepare('n2', '会議なのだ', { speechKind: 'calendar' })).toBeNull();
+  });
+
+  it('利用者が声を変えていれば録音を使わない（合成する。合成できなければ読み上げない）', async () => {
+    const changed = { speakerId: 1, speedScale: 1.0, pitchScale: 0.0 };
+    {
+      const { reader, vv } = setup({ voiceConfig: changed, fixedVoice: fixedVoiceIn(path.join(dir, 'voice')) });
+      expect((await reader.prepare('idle1', 'おはようなのだ')).filePath).not.toBeNull();
+      expect(vv.callsTo('/synthesis')).toHaveLength(1);
+    }
+    const { reader } = setup({ running: false, voiceConfig: changed, fixedVoice: fixedVoiceIn(path.join(dir, 'voice2')) });
+    expect(await reader.prepare('n1', '会議なのだ', { speechKind: 'calendar' })).toBeNull();
+  });
+
+  it('ミュート中は録音も流さない。合成中に表示が終わったら、代わりの録音も流さない', async () => {
+    {
+      const { reader } = setup({ muted: true, fixedVoice: fixedVoiceIn(path.join(dir, 'voice')) });
+      expect(await reader.prepare('idle1', 'おはようなのだ')).toBeNull();
+    }
+    const { reader, vv } = setup({ fixedVoice: fixedVoiceIn(path.join(dir, 'voice2')) });
+    const gate = vv.holdSynthesis();
+    const p = reader.prepare('n1', '会議なのだ', { speechKind: 'calendar' });
+    await vi.waitFor(() => expect(vv.callsTo('/synthesis')).toHaveLength(1));
+    reader.cancel('n1');
+    expect(await p).toBeNull();
+    gate.release();
   });
 });

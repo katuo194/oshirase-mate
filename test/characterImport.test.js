@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  BUNDLED_CHARACTER_IDS,
   CANVAS_SIZE,
   PNG_HEADER_BYTES,
   buildManifest,
@@ -11,6 +12,7 @@ import {
   createCharacterRepository,
   describeImportError,
   frameFileNames,
+  isBundledCharacterId,
   isValidCharacterId,
   parseManifest,
   readPngHeader,
@@ -139,6 +141,13 @@ describe('入力値の検証', () => {
     for (const bad of ['default', '', '../x', 'Emotelab', 'a/b', 'a.b', '-x', 'x'.repeat(65), 42]) expect(isValidCharacterId(bad)).toBe(false);
   });
 
+  it('同梱キャラクターの ID（bundled- で始まるもの）は取り込んだキャラクターには使えない（F-23）', () => {
+    for (const id of [...BUNDLED_CHARACTER_IDS, 'bundled-other']) expect(isValidCharacterId(id)).toBe(false);
+    expect(BUNDLED_CHARACTER_IDS.every(isBundledCharacterId)).toBe(true);
+    expect(isBundledCharacterId('bundled-other')).toBe(false);
+    expect(isBundledCharacterId('default')).toBe(false);
+  });
+
   it('スロットの保存先フォルダ名は . を - に', () => {
     expect(slotFolderName('notify.calendar')).toBe('notify-calendar');
     expect(slotFolderName('rest')).toBe('rest');
@@ -232,6 +241,18 @@ describe('mascot-character:// の URL', () => {
       'not a url',
     ];
     for (const url of bad) expect(resolveCharacterUrl(url, root)).toBeNull();
+  });
+
+  it('同梱キャラクター（F-23）はアプリの中のフォルダ（bundledDir）を指す。bundledDir が無ければ・同梱でない bundled- は指せない', () => {
+    const bundledDir = path.join(os.tmpdir(), 'app', 'assets', 'characters');
+    const url = characterFrameUrl('bundled-boy', 'notify-gmail', 3, '2026-10-20');
+    expect(resolveCharacterUrl(url, root, bundledDir)).toBe(path.join(bundledDir, 'bundled-boy', 'notify-gmail', '003.png'));
+    expect(resolveCharacterUrl(url, root)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-other/rest/000.png', root, bundledDir)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-boy/voice/000.png', root, bundledDir)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-boy/rest/manifest.json', root, bundledDir)).toBeNull();
+    // 取り込んだキャラクターは従来どおり userData の下
+    expect(resolveCharacterUrl('mascot-character://emotelab-3f9a1c2e/rest/000.png', root, bundledDir)).toBe(path.join(root, 'emotelab-3f9a1c2e', 'rest', '000.png'));
   });
 });
 

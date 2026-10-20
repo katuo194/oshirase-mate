@@ -6,6 +6,7 @@ import {
   parsePersona,
   parseVoice,
   resolveVoiceConfig,
+  validateCharacterProfile,
   validatePersona,
   validateVoice,
 } from '../src/main/characterProfile.js';
@@ -166,5 +167,19 @@ describe('voicevox / listSpeakers（キャラクターの声の選択。mocks/vo
     const err = await voicevox.listSpeakers().catch((e) => e);
     expect(err).toBeInstanceOf(VoicevoxError);
     expect(err.kind).toBe('unavailable');
+  });
+});
+
+describe('characterProfile / 声・キャラクター設定・セリフをまとめて検証（validateCharacterProfile）', () => {
+  it('正しければ整えた値を返す（取り込み・既定・同梱キャラクターの保存で共通）', () => {
+    const r = validateCharacterProfile({ voice: { speakerId: 2, speedScale: 1.234 }, persona: ' 静か ', lines: { idle: { normal: 'ひまだね\n\n' } } });
+    expect(r).toMatchObject({ ok: true, voice: { speakerId: 2, speedScale: 1.23, pitchScale: 0 }, persona: '静か' });
+    expect(r.lines.idle.normal).toEqual(['ひまだね']);
+  });
+
+  it('どれかが不正なら、その項目のエラーを返す', () => {
+    expect(validateCharacterProfile({ voice: { speakerId: -1 } })).toEqual({ ok: false, error: { code: 'invalid_voice' } });
+    expect(validateCharacterProfile({ persona: 'あ'.repeat(PERSONA_MAX + 1) })).toEqual({ ok: false, error: { code: 'invalid_persona' } });
+    expect(validateCharacterProfile({ lines: { idle: { normal: '{title}' } } }).error.code).toBe('lines_unknown_placeholder');
   });
 });

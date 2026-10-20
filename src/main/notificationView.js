@@ -11,7 +11,7 @@
 // 読み上げ文（speech）はキャラクターのセリフ（F-22・characterLines.js）から作る。セリフを渡さなければ今の固定文と同じ。
 // 吹き出し（ラベル・主題・副題）はセリフによらず今のまま。
 
-import { DEFAULT_NOTIFY_LINES, FALLBACK_NOTIFY_LINES, SPEECH_MAX, SPOKEN_TODO, isUsableLine, renderSpeech, toSpoken } from './characterLines.js';
+import { DEFAULT_NOTIFY_LINES, FALLBACK_NOTIFY_LINES, SPEECH_MAX, SPOKEN_TODO, isUsableLine, plainSpeech, renderSpeech, toSpoken } from './characterLines.js';
 
 const TITLE_MAX = 120;
 const SUB_MAX = 80;
@@ -196,7 +196,9 @@ const timingFor = (holdMs) => ({
  *   timing: { holdMs: number, outMs: number, burstMs: number, loopCycleMs: number, voiceTailMs: number, maxVoiceHoldMs: number, voiceAfterSfxMs: number, voiceGateMaxMs: number },
  *   sfxKey: string | null,
  *   speech: string | null,
+ *   speechKind: string | null,
  * }}
+ * speechKind はセリフの種類（speechSlots の kind）。VOICEVOX で読み上げられないとき、同梱キャラクターの件名なしの固定ボイスを選ぶのに使う（Phase 15）
  */
 export function toPresentation(notification, { now = Date.now(), backlog = 0, lines, pickLine } = {}) {
   const def = KINDS[notification.source] ?? FALLBACK;
@@ -218,6 +220,7 @@ export function toPresentation(notification, { now = Date.now(), backlog = 0, li
     timing: timingFor(holdMs),
     sfxKey: notification.source in KINDS ? notification.source : 'default',
     speech: toSpeechText(n, { lines, pickLine }),
+    speechKind: speechSlots(n).kind,
   };
 }
 
@@ -259,7 +262,7 @@ export function idlePresentation({ id, text }) {
     timing: timingFor(IDLE_HOLD_MS),
     sfxKey: null,
     // キャラクターのセリフ（F-22）に「TODO」と書かれても読めるように、通知と同じく読みに置き換える
-    speech: [...toSpoken(text)].slice(0, SPEECH_MAX).join(''),
+    speech: plainSpeech(text),
   };
 }
 

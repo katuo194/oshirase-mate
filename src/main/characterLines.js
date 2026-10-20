@@ -230,6 +230,15 @@ const expand = (line, values) => line.replace(PLACEHOLDER_RE, (_, name) => value
 const sliceCodePoints = (s, n) => [...s].slice(0, n).join('');
 
 /**
+ * 差し込みの無い文（アイドルトーク・同梱キャラクターの件名なしの固定ボイス）の読み上げ文。TODO を読みに置き換え、最大 SPEECH_MAX 文字。
+ * 固定ボイス（fixedVoice.js）は、録音した文とこの結果が一字一句同じときに使う。
+ * @param {string} text
+ */
+export function plainSpeech(text) {
+  return sliceCodePoints(toSpoken(text), SPEECH_MAX);
+}
+
+/**
  * 差し込みを展開して読み上げ文にする。TODO の読み替えは展開した後の文全体に行う。
  * 長すぎるときは、セリフの部分を残して件名（{title}）の側を切り詰め、全体を max 以内にする。
  * それでも収まらなければ差出人（{from}）を切り詰め、最後の手段として文全体を切る。

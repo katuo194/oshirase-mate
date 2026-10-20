@@ -12,8 +12,8 @@
 // セリフ（lines。F-22・Phase 13）は manifest.json・default-profile.json に持つ。無い古いファイルも読め、壊れた行だけを捨てる。
 
 import path from 'node:path';
-import { describeLinesError, emptyLines, isLinesError, parseLines, validateLines } from './characterLines.js';
-import { parseDefaultProfile, parsePersona, parseVoice, validatePersona, validateVoice } from './characterProfile.js';
+import { describeLinesError, emptyLines, isLinesError, parseLines } from './characterLines.js';
+import { parseDefaultProfile, parsePersona, parseVoice, validateCharacterProfile } from './characterProfile.js';
 
 export const MANIFEST_VERSION = 1;
 /** EmoteLab の書き出しキャンバス（2.6。自動リサイズはしない） */
@@ -21,6 +21,13 @@ export const CANVAS_SIZE = 400;
 export const SOURCE_EMOTELAB = 'EmoteLab';
 /** 組み込みの既定キャラクター（黄色い丸）の ID。取り込んだキャラクターには使えない */
 export const DEFAULT_CHARACTER_ID = 'default';
+/**
+ * 同梱キャラクター（F-23・Phase 15）の ID（一覧の並び順）。画像・セリフ・固定ボイスはアプリの中の assets/characters/<id>/ にある（bundledCharacters.js）。
+ * 取り込んだキャラクターには使えない（bundled- で始まる ID はすべて予約）
+ */
+export const BUNDLED_CHARACTER_IDS = Object.freeze(['bundled-boy', 'bundled-girl']);
+const BUNDLED_PREFIX = 'bundled-';
+export const isBundledCharacterId = (id) => BUNDLED_CHARACTER_IDS.includes(id);
 
 export const SLOT_NAMES = Object.freeze(['rest', 'notify', 'notify.calendar', 'notify.tasks', 'notify.gmail']);
 export const REQUIRED_SLOTS = Object.freeze(['rest', 'notify']);
@@ -50,10 +57,13 @@ const DEFAULT_PROFILE_FILE = 'default-profile.json';
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
 
-/** 取り込んだキャラクターの ID として使えるか（パスに使うため英小文字・数字・ハイフンのみ。default は予約） */
+/** 取り込んだキャラクターの ID として使えるか（パスに使うため英小文字・数字・ハイフンのみ。default と bundled- で始まるものは予約） */
 export function isValidCharacterId(id) {
-  return typeof id === 'string' && ID_RE.test(id) && id !== DEFAULT_CHARACTER_ID;
+  return typeof id === 'string' && ID_RE.test(id) && id !== DEFAULT_CHARACTER_ID && !id.startsWith(BUNDLED_PREFIX);
 }
+
+/** スロットのフォルダ名（'notify-calendar' など）として正しいか */
+export const isSlotFolderName = (folder) => SLOT_FOLDERS.has(folder);
 
 /** スロット名 → キャラクターフォルダ内の保存先の名前（'notify.calendar' → 'notify-calendar'） */
 export function slotFolderName(slot) {
@@ -287,11 +297,13 @@ function isAllowedSearch(search) {
 /**
  * mascot-character:// の URL を、rootDir 配下の実ファイルのパスへ変換する。
  * ID・フォルダ名・ファイル名をすべて許可リスト／正規表現で検証するので、rootDir の外（..・絶対パス・別名）は指せない。
+ * 同梱キャラクター（BUNDLED_CHARACTER_IDS）は bundledDir（アプリの中の assets/characters）の下を指す。bundledDir が無ければ不正。
  * @param {string} url
  * @param {string} rootDir userData/characters
+ * @param {string} [bundledDir] assets/characters
  * @returns {string | null} 不正なら null
  */
-export function resolveCharacterUrl(url, rootDir) {
+export function resolveCharacterUrl(url, rootDir, bundledDir) {
   let u;
   try {
     u = new URL(url);
@@ -300,13 +312,14 @@ export function resolveCharacterUrl(url, rootDir) {
   }
   if (u.protocol !== `${PROTOCOL_SCHEME}:` || u.username || u.password || u.port || !isAllowedSearch(u.search) || u.hash) return null;
   const id = u.hostname;
-  if (!isValidCharacterId(id)) return null;
+  const bundled = isBundledCharacterId(id);
+  if (bundled ? !bundledDir : !isValidCharacterId(id)) return null;
   const parts = u.pathname.split('/');
   // '' / folder / file の3要素だけを許す
   if (parts.length !== 3 || parts[0] !== '') return null;
   const [, folder, file] = parts;
   if (!SLOT_FOLDERS.has(folder) || !SAVED_FRAME_RE.test(file)) return null;
-  return path.join(rootDir, id, folder, file);
+  return path.join(bundled ? bundledDir : rootDir, id, folder, file);
 }
 
 const ERROR_MESSAGES = {
@@ -441,15 +454,7 @@ export function createCharacterRepository({ rootDir, fs, randomId = randomHex8, 
   }
 
   /** 声・キャラクター設定・セリフの入力を検証する */
-  function validateProfile({ voice, persona, lines }) {
-    const v = validateVoice(voice);
-    if (!v.ok) return v;
-    const p = validatePersona(persona);
-    if (!p.ok) return p;
-    const l = validateLines(lines);
-    if (!l.ok) return l;
-    return { ok: true, voice: v.value, persona: p.value, lines: l.value };
-  }
+  const validateProfile = validateCharacterProfile;
 
   async function readManifest(id) {
     try {

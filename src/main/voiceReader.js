@@ -13,6 +13,11 @@
 // 読み上げの待ち行列は持たない。扱うのは「いま表示中の1件」だけなので、ミュート解除後に再生される経路が存在しない。
 // ボイス音量0でも合成しない。版（個人版／共有版）では判定しない：VOICEVOX が起動していれば両版とも読み上げる（v5.11）。
 // 起動していないときは voicevox.synthesize の起動確認で分かり、サイレントにスキップする。
+//
+// 同梱キャラクターの固定ボイス（F-23・Phase 15。fixedVoice.js）：
+//   - 読み上げる文と一字一句同じ録音があれば、VOICEVOX に問い合わせずにそれを流す（VOICEVOX が起動していても録音を優先する）
+//   - 録音が無く VOICEVOX で合成できなかった（未起動・失敗）通知は、種類ごとの件名なしの録音を流す（speechKind。アイドルトークには無い）
+//   録音は同梱のファイルなので、cancel で削除しない。
 
 import path from 'node:path';
 import { VoicevoxError, wavDurationMs } from './voicevox.js';
@@ -26,9 +31,10 @@ import { VoicevoxError, wavDurationMs } from './voicevox.js';
  * @param {{ writeFile: Function, rm: Function, mkdir: Function, readdir: Function }} deps.fs node:fs/promises 互換
  * @param {(filePath: string) => string} deps.toUrl
  * @param {() => string} deps.randomId
+ * @param {() => ReturnType<import('./fixedVoice.js').createFixedVoice> | null} [deps.getFixedVoice] 選択中の同梱キャラクターの固定ボイス（無ければ null）
  * @param {{ info: Function, warn: Function }} [deps.log]
  */
-export function createVoiceReader({ voicevox, getSettings, getVoiceConfig, dir, fs, toUrl, randomId, log = console }) {
+export function createVoiceReader({ voicevox, getSettings, getVoiceConfig, dir, fs, toUrl, randomId, getFixedVoice = () => null, log = console }) {
   /** 表示中の1件の読み上げ。{ id, controller, filePath } */
   let current = null;
 
@@ -50,13 +56,20 @@ export function createVoiceReader({ voicevox, getSettings, getVoiceConfig, dir, 
     return null;
   }
 
+  /** 同梱の録音を流す（ファイルは作らない・消さない） */
+  function playRecorded(entry, clip, why) {
+    log.info(`[voice] ${why}: ${entry.id}`);
+    return { url: toUrl(clip.filePath), filePath: null, durationMs: clip.durationMs, volume: getSettings().volume.voice };
+  }
+
   return {
     /**
      * @param {string} id 表示中の presentation.id
      * @param {string | null} text 読み上げる文（notificationView.toSpeechText）
-     * @returns {Promise<{ url: string, filePath: string, durationMs: number | null, volume: number } | null>}
+     * @param {{ speechKind?: string | null }} [opts] 通知のセリフの種類（合成できないときの件名なしの固定ボイスに使う）
+     * @returns {Promise<{ url: string, filePath: string | null, durationMs: number | null, volume: number } | null>}
      */
-    async prepare(id, text) {
+    async prepare(id, text, { speechKind = null } = {}) {
       const reason = skipReason(text);
       if (reason !== null) {
         if (reason === 'muted') log.info(`[voice] ミュート中のため読み上げを破棄: ${id}`);
@@ -68,13 +81,22 @@ export function createVoiceReader({ voicevox, getSettings, getVoiceConfig, dir, 
       current = entry;
       const isCurrent = () => current === entry;
 
+      const voiceConfig = getVoiceConfig();
+      const fixed = getFixedVoice();
+      const recorded = fixed?.match(text, voiceConfig);
+      if (recorded) return playRecorded(entry, recorded, '同梱の録音で読み上げ');
+
       let wav;
       try {
-        wav = await voicevox.synthesize(text, { ...getVoiceConfig(), volumeScale: 1.0 }, { signal: entry.controller.signal });
+        wav = await voicevox.synthesize(text, { ...voiceConfig, volumeScale: 1.0 }, { signal: entry.controller.signal });
       } catch (e) {
-        if (isCurrent()) current = null;
         // 未起動・失敗はサイレントにスキップ（状態の変化とログは voicevox.js が出す）。中断は表示が先に終わっただけ
         if (!(e instanceof VoicevoxError)) log.warn(`[voice] 読み上げの準備に失敗: ${e?.message ?? e}`);
+        // 同梱キャラクターの通知は、件名なしの録音で代わりに知らせる（表示が終わった・ミュートされたなら何もしない）
+        const aborted = !isCurrent() || (e instanceof VoicevoxError && e.kind === 'aborted');
+        const substitute = !aborted && speechKind && !getSettings().muted ? fixed?.fallback(speechKind, voiceConfig) : null;
+        if (substitute) return playRecorded(entry, substitute, 'VOICEVOX で読み上げられないため件名なしの録音で読み上げ');
+        if (isCurrent()) current = null;
         return null;
       }
 

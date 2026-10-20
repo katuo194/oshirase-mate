@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "bundled-girl",
+  "displayName": "女の子",
+  "canvasSize": 400,
+  "updatedAt": "2026-10-20T00:00:00.000Z",
+  "slots": {
+    "rest": { "fps": 30 },
+    "notify": { "fps": 30 },
+    "notify.calendar": { "fps": 30 },
+    "notify.tasks": { "fps": 30 },
+    "notify.gmail": { "fps": 30 }
+  },
+  "voice": { "speakerId": 2, "speedScale": 1, "pitchScale": 0 },
+  "voiceCredit": "VOICEVOX:四国めたん",
+  "persona": "",
+  "lines": {
+    "notify": { "calendar": [], "calendarAllDay": [], "tasks": [], "gmail": [] },
+    "idle": { "morning": [], "bedtime": [], "normal": [] },
+    "chat": { "closing": [] }
+  },
+  "fallbackLines": { "calendar": [], "calendarAllDay": [], "tasks": [], "gmail": [] }
+}
