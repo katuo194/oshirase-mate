@@ -5,11 +5,11 @@
   "canvasSize": 400,
   "updatedAt": "2026-10-20T00:00:00.000Z",
   "slots": {
-    "rest": { "fps": 30 },
-    "notify": { "fps": 30 },
-    "notify.calendar": { "fps": 30 },
-    "notify.tasks": { "fps": 30 },
-    "notify.gmail": { "fps": 30 }
+    "rest": { "fps": 60 },
+    "notify": { "fps": 60 },
+    "notify.calendar": { "fps": 60 },
+    "notify.tasks": { "fps": 60 },
+    "notify.gmail": { "fps": 60 }
   },
   "voice": { "speakerId": 3, "speedScale": 1, "pitchScale": 0 },
   "voiceCredit": "VOICEVOX:ずんだもん",
