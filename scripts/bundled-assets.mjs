@@ -48,8 +48,10 @@ export async function checkBundledCharacter(assetsDir, id) {
   for (const slot of SLOT_NAMES) {
     if (raw?.slots?.[slot] === null || raw?.slots?.[slot] === undefined) continue;
     const folder = path.join(dir, slotFolderName(slot));
-    if (!(await exists(folder))) {
-      if (REQUIRED_SLOTS.includes(slot)) problem('images', `${slotFolderName(slot)}/ がありません（必須）`);
+    // フォルダが無い・空（置き場所だけ作ってある）なら、そのモーションの画像は無い（任意のモーションなら「通知」を使う）
+    const hasPng = (await exists(folder)) && (await fs.readdir(folder)).some((n) => /\.png$/i.test(n));
+    if (!hasPng) {
+      if (REQUIRED_SLOTS.includes(slot)) problem('images', `${slotFolderName(slot)}/ に画像がありません（必須）`);
       continue;
     }
     const inspected = await inspector.inspectFolder(folder);

@@ -18,7 +18,9 @@ describe.each(BUNDLED_CHARACTER_IDS)('同梱キャラクターの素材：%s', (
 
   it('画像を置いてあれば、取り込みと同じ決まり（400×400・RGBA・欠番のない連番）に合っている', async () => {
     const r = await checkBundledCharacter(assetsDir, id);
-    const placed = fs.existsSync(path.join(assetsDir, id, 'rest')) || fs.existsSync(path.join(assetsDir, id, 'notify'));
+    // 置き場所だけ作った空のフォルダは「まだ置いていない」
+    const hasPng = (folder) => fs.existsSync(folder) && fs.readdirSync(folder).some((n) => /\.png$/i.test(n));
+    const placed = ['rest', 'notify'].some((f) => hasPng(path.join(assetsDir, id, f)));
     if (placed) expect(r.problems.filter((p) => p.code === 'images')).toEqual([]);
   });
 
