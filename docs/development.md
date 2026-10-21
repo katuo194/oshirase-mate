@@ -52,7 +52,7 @@ npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 �
 
 ## 同梱キャラクター（素材の作り方）
 
-同梱キャラクター（要件定義書 F-23）は `assets/characters/<id>/` に置きます。id は `bundled-boy`（シトロン・ずんだもんの声）と `bundled-girl`（シアン・四国めたんの声）で、`src/main/characterImport.js` の `BUNDLED_CHARACTER_IDS` が一覧の順です。
+同梱キャラクター（要件定義書 F-23）は `assets/characters/<id>/` に置きます。id は `bundled-boy`（シアン・ずんだもんの声）と `bundled-girl`（シトロン・四国めたんの声）で、`src/main/characterImport.js` の `BUNDLED_CHARACTER_IDS` が一覧の順です。
 
 ```
 assets/characters/bundled-boy/
