@@ -6,6 +6,8 @@ const SLOT_LABELS = { 'notify.calendar': 'カレンダー', 'notify.tasks': 'TOD
 
 function subText(c) {
   if (c.builtin) return '組み込み';
+  // 同梱キャラクター（F-23）：固定ボイスのクレジット表記（VOICEVOX の利用規約・7.2）をここに出す
+  if (c.bundled) return c.voiceCredit ? `同梱・音声：${c.voiceCredit}` : '同梱';
   const kinds = c.slots.filter((s) => SLOT_LABELS[s]).map((s) => SLOT_LABELS[s]);
   return kinds.length > 0 ? `EmoteLab・種別モーション：${kinds.join('／')}` : 'EmoteLab';
 }
@@ -42,12 +44,19 @@ function render(view) {
       sub.className = 'sub';
       sub.textContent = subText(c);
       meta.append(name, sub);
+      // 読み上げの声（v5.18。「声：ずんだもん（ノーマル）・録音あり」など。名前はメインが VOICEVOX の一覧から決める）
+      if (c.voiceLabel) {
+        const voice = document.createElement('span');
+        voice.className = 'sub';
+        voice.textContent = c.voiceLabel;
+        meta.append(voice);
+      }
 
       const edit = document.createElement('button');
       edit.type = 'button';
       edit.className = 'edit';
       edit.textContent = '編集';
-      edit.title = c.builtin ? '声とキャラクター設定を編集' : '名前・モーション・声・キャラクター設定を編集';
+      edit.title = c.builtin || c.bundled ? '声・キャラクター設定・セリフを編集' : '名前・モーション・声・キャラクター設定・セリフを編集';
       edit.addEventListener('click', (e) => {
         e.stopPropagation(); // 行のクリック（選択）にしない
         void window.characterApi.openEdit(c.id);

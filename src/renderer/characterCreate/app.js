@@ -1,5 +1,5 @@
 // キャラクター作成／編集画面（F-17・3.6・v5.9）。フォルダはメインがOSのダイアログで選び、検証結果（枚数・エラー理由）だけが返ってくる。
-// ?edit=<id> で開くと編集モード（取り込んだキャラクターは全項目、既定キャラクター〔id=default〕は声・キャラクター設定・セリフのみ）。
+// ?edit=<id> で開くと編集モード（取り込んだキャラクターは全項目、既定キャラクター〔id=default〕と同梱キャラクター〔F-23〕は声・キャラクター設定・セリフのみ）。
 const SLOTS = [
   { slot: 'rest', label: '待機（rest）', required: true },
   { slot: 'notify', label: '通知（notify）', required: true },
@@ -7,7 +7,7 @@ const SLOTS = [
   { slot: 'notify.tasks', label: 'TODO', required: false },
   { slot: 'notify.gmail', label: '重要メール', required: false },
 ];
-const FPS_DEFAULT = 30;
+const FPS_DEFAULT = 60;
 const FPS_MIN = 1;
 const FPS_MAX = 60;
 const PERSONA_MAX = 1000;
@@ -25,6 +25,7 @@ const pitchEl = $('pitch');
 const personaEl = $('persona');
 const generateEl = $('generate');
 const generateStatusEl = $('generate-status');
+const resetEl = $('reset');
 
 const editId = new URLSearchParams(location.search).get('edit');
 /** 'create' | 'edit' */
@@ -56,12 +57,14 @@ function fpsValue(slot) {
   return Number.isInteger(n) && n >= FPS_MIN && n <= FPS_MAX ? n : null;
 }
 
-const isBuiltinEdit = () => mode === 'edit' && editing?.builtin === true;
+/** 名前・画像を変えられない編集（黄色い丸・同梱キャラクター） */
+const isFixedEdit = () => mode === 'edit' && (editing?.builtin === true || editing?.bundled === true);
 const personaLength = () => [...personaEl.value.trim()].length;
 
 function updateSubmit() {
   let ok = !busy && !generating && personaLength() <= PERSONA_MAX && linesWithinCount();
-  if (!isBuiltinEdit()) {
+  resetEl.disabled = busy || generating || editing?.customized !== true;
+  if (!isFixedEdit()) {
     ok &&= nameEl.value.trim() !== '';
     ok &&= SLOTS.filter((s) => s.required).every((s) => rows[s.slot].state !== 'none');
     ok &&= SLOTS.every((s) => rows[s.slot].state === 'none' || fpsValue(s.slot) !== null);
@@ -421,7 +424,8 @@ submitEl.addEventListener('click', async () => {
     } else {
       const r = await window.characterCreateApi.save(editing.id, request());
       if (r.ok) {
-        if (!editing.builtin) resetRows(r.slots);
+        if (!isFixedEdit()) resetRows(r.slots);
+        if (r.customized) editing.customized = true; // 同梱キャラクター：「同梱の状態に戻す」を押せるようにする
         setLines(r.lines); // 前後の空白・空行を除いた、保存した形に揃える
         setStatus(submitStatusEl, `「${r.displayName}」を保存しました。`, 'ok');
       } else {
@@ -440,10 +444,37 @@ submitEl.addEventListener('click', async () => {
 
 nameEl.addEventListener('input', updateSubmit);
 
+// ---- 同梱の状態に戻す（同梱キャラクターの編集のみ。F-23）。確認のダイアログはメインが出す ----
+
+resetEl.addEventListener('click', async () => {
+  busy = true;
+  updateSubmit();
+  try {
+    const r = await window.characterCreateApi.resetBundled(editing.id);
+    if (r.ok) {
+      editing = r.character;
+      personaEl.value = editing.persona ?? '';
+      setLines(editing.lines);
+      setStatus(generateStatusEl, '');
+      await loadSpeakers(editing.voice);
+      syncPersonaCount();
+      setStatus(submitStatusEl, `「${editing.displayName}」を同梱の状態に戻しました。`, 'ok');
+    } else if (!r.canceled) {
+      setStatus(submitStatusEl, r.message, 'error');
+    }
+  } catch (e) {
+    setStatus(submitStatusEl, '同梱の状態に戻せませんでした', 'error');
+    console.warn(e);
+  } finally {
+    busy = false;
+    updateSubmit();
+  }
+});
+
 // ---- 取り込み済みの一覧（作成モードのみ） ----
 
 function renderList(view) {
-  const imported = view.characters.filter((c) => !c.builtin);
+  const imported = view.characters.filter((c) => !c.builtin && !c.bundled);
   listEmptyEl.hidden = imported.length > 0;
   listEl.replaceChildren(
     ...imported.map((c) => {
@@ -502,17 +533,23 @@ async function start() {
   setLines(mode === 'edit' ? r.character.lines : null);
   if (mode === 'edit') {
     editing = r.character;
-    const title = editing.builtin ? `${editing.displayName} の編集` : 'キャラクター編集';
+    const title = isFixedEdit() ? `${editing.displayName} の編集` : 'キャラクター編集';
     $('heading').textContent = title;
     document.title = title;
     $('list-section').hidden = true;
     submitEl.textContent = '保存';
     personaEl.value = editing.persona ?? '';
-    if (editing.builtin) {
-      // 既定キャラクター：画像と名前は変えられない（声・キャラクター設定・セリフだけ）
-      $('intro').textContent = '組み込みのキャラクターです。声・キャラクター設定・セリフだけを変更できます。';
+    if (isFixedEdit()) {
+      // 既定キャラクター・同梱キャラクター：画像と名前は変えられない（声・キャラクター設定・セリフだけ）
+      $('intro').textContent = editing.bundled
+        ? '同梱のキャラクターです。声・キャラクター設定・セリフだけを変更できます。' +
+          '同梱の声とセリフのままなら、VOICEVOX が無くても録音した声で話します（変えた文や声は VOICEVOX で読み上げます）。'
+        : '組み込みのキャラクターです。声・キャラクター設定・セリフだけを変更できます。';
       $('name-section').hidden = true;
       $('slots-section').hidden = true;
+      // セリフの生成でキャラクター名を送るため、表示しない欄にも名前を入れておく（黄色い丸は名前を送らない：メインが判断する）
+      if (editing.bundled) nameEl.value = editing.displayName;
+      resetEl.hidden = !editing.bundled;
     } else {
       $('intro').textContent = '名前・モーション・声・キャラクター設定・セリフを変更できます。モーションのフォルダを選び直すと、保存時に画像を差し替えます。';
       nameEl.value = editing.displayName;

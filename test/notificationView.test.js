@@ -295,3 +295,13 @@ describe('notificationView / 読み上げの presentation', () => {
     expect(p.timing.holdMs).toBe(6000);
   });
 });
+
+describe('notificationView / セリフの種類（speechKind・F-23 の件名なしの固定ボイス）', () => {
+  it('通知の読み上げのセリフの種類を持つ（予定は時刻ありと終日で分ける。種類の無い通知は null）', () => {
+    expect(toPresentation(cal(), { now: NOW }).speechKind).toBe('calendar');
+    expect(toPresentation(cal({ data: { startAt: at(0, 0), allDay: true } }), { now: NOW }).speechKind).toBe('calendarAllDay');
+    expect(toPresentation(task(), { now: NOW }).speechKind).toBe('tasks');
+    expect(toPresentation(mail(), { now: NOW }).speechKind).toBe('gmail');
+    expect(toPresentation({ id: 'x:1', source: 'unknown', title: 'a', body: 'b' }, { now: NOW }).speechKind).toBeNull();
+  });
+});

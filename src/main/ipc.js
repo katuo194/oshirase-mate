@@ -1,10 +1,18 @@
 import { ipcMain } from 'electron';
 import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
-import { DEFAULT_CHARACTER_ID, SLOT_NAMES, characterFrameUrl, describeImportError, isValidCharacterId } from './characterImport.js';
+import {
+  DEFAULT_CHARACTER_ID,
+  SLOT_NAMES,
+  characterFrameUrl,
+  describeImportError,
+  isBundledCharacterId,
+  isValidCharacterId,
+} from './characterImport.js';
 import { isLinesError, linesGuide } from './characterLines.js';
 import { validatePersona } from './characterProfile.js';
 import { externalUrlFor } from './externalLinks.js';
+import { voiceLabel } from './speakerNames.js';
 import { describeGenerateError } from './lineGenerator.js';
 
 /** 既定キャラクターの表示名（選択画面・編集画面） */
@@ -94,28 +102,38 @@ export function registerAuthIpc({ getSettingsWindow, auth }) {
 /**
  * VOICEVOX の接続状態用IPC（設定ウィンドウからのみ）。設定画面を開いたとき・「再確認」で起動確認を行う（定期ポーリングはしない）。
  * 個人版・共有版で違いはない（v5.11：有効・無効は接続状態だけで決まる）。
- * - voice:get-state … 起動確認をして状態を返す（{ status, version?, speakerName?, reason? }）
+ * - voice:get-state … 起動確認をして状態を返す（{ status, version?, speakerName?, reason?, fixedVoiceCredit, fixedVoiceChanged }）
  * - voice:recheck   … 同上（ボタン用）
- * - voice:changed   … 状態が変わるたび（読み上げ時の失敗・復帰を含む）に設定ウィンドウへ通知
+ * - voice:changed   … 状態が変わるたび（読み上げ時の失敗・復帰を含む）・選択中のキャラクターが変わったときに設定ウィンドウへ通知
+ * fixedVoiceCredit は、選択中の同梱キャラクターの固定ボイスを今の声で使えるときのクレジット表記（「VOICEVOX:ずんだもん」。F-23）。無ければ null。
+ * fixedVoiceChanged は、選択中の同梱キャラクターに録音があるのに、利用者が声を変えたため使えないとき true（設定画面がその理由を出す。v5.18）。
  * @param {object} opts
  * @param {() => Electron.BrowserWindow | null} opts.getSettingsWindow
  * @param {ReturnType<import('./voicevox.js').createVoicevox>} opts.voicevox
  * @param {() => { speakerId: number }} opts.getVoiceConfig
+ * @param {() => { credit: string | null, changed: boolean }} [opts.getFixedVoiceState]
+ * @returns {{ refresh: () => void }} 選択中のキャラクターが変わったときに呼ぶ（クレジット表記を出し直す）
  */
-export function registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig }) {
+export function registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig, getFixedVoiceState = () => ({ credit: null, changed: false }) }) {
   const isFromSettingsWindow = senderCheck(getSettingsWindow);
+  const withCredit = (state) => {
+    const fixed = getFixedVoiceState();
+    return { ...state, fixedVoiceCredit: fixed.credit, fixedVoiceChanged: fixed.changed };
+  };
+  const send = (state) => {
+    const win = getSettingsWindow();
+    if (win && !win.isDestroyed()) win.webContents.send('voice:changed', withCredit(state));
+  };
 
   const check = async (e) => {
     if (!isFromSettingsWindow(e)) throw new Error('forbidden');
-    return voicevox.checkStatus(getVoiceConfig());
+    return withCredit(await voicevox.checkStatus(getVoiceConfig()));
   };
   ipcMain.handle('voice:get-state', check);
   ipcMain.handle('voice:recheck', check);
 
-  voicevox.events.on('change', (state) => {
-    const win = getSettingsWindow();
-    if (win && !win.isDestroyed()) win.webContents.send('voice:changed', state);
-  });
+  voicevox.events.on('change', send);
+  return { refresh: () => send(voicevox.getState()) };
 }
 
 /**
@@ -312,25 +330,58 @@ export function registerChatIpc({ getChatWindow, controller }) {
   });
 }
 
-/** 選択画面・作成／編集画面に出す一覧の1行（既定キャラクター＋取り込み済み）。フォルダのパスは含めない */
-function characterListView(manifests, selectedId) {
-  const ids = new Set(manifests.map((m) => m.id));
+/**
+ * 選択画面・作成／編集画面に出す一覧（既定キャラクター → 同梱キャラクター → 取り込み済み）。フォルダのパスは含めない。
+ * builtin は黄色い丸、bundled は同梱キャラクター（F-23。名前・画像を変えられず、削除できない）。voiceCredit は同梱の固定ボイスのクレジット表記
+ */
+function characterListView(bundled, manifests, selectedId, { defaultCharacterVoice, describeVoice }) {
+  const ids = new Set([...bundled, ...manifests].map((m) => m.id));
+  const row = (m, extra) => ({
+    id: m.id,
+    displayName: m.displayName,
+    builtin: false,
+    bundled: false,
+    // 編集で画像が差し替わっても古いサムネイルを出さないよう、更新日時（revision）を付ける
+    thumbnail: characterFrameUrl(m.id, m.slots.rest.folder, 0, m.updatedAt),
+    slots: SLOT_NAMES.filter((s) => m.slots[s]),
+    voiceCredit: null,
+    voiceLabel: describeVoice(m.voice),
+    ...extra,
+  });
   return {
     // 保存された ID が無くなっていれば既定キャラクターを表示している（6.1）
     selected: ids.has(selectedId) ? selectedId : DEFAULT_CHARACTER_ID,
     characters: [
-      { id: DEFAULT_CHARACTER_ID, displayName: DEFAULT_CHARACTER_NAME, builtin: true, thumbnail: null, slots: [] },
-      ...manifests.map((m) => ({
-        id: m.id,
-        displayName: m.displayName,
-        builtin: false,
-        // 編集で画像が差し替わっても古いサムネイルを出さないよう、更新日時（revision）を付ける
-        thumbnail: characterFrameUrl(m.id, m.slots.rest.folder, 0, m.updatedAt),
-        slots: SLOT_NAMES.filter((s) => m.slots[s]),
-      })),
+      {
+        id: DEFAULT_CHARACTER_ID,
+        displayName: DEFAULT_CHARACTER_NAME,
+        builtin: true,
+        bundled: false,
+        thumbnail: null,
+        slots: [],
+        voiceCredit: null,
+        voiceLabel: describeVoice(defaultCharacterVoice),
+      },
+      ...bundled.map((m) =>
+        row(m, { bundled: true, voiceCredit: m.voiceCredit, voiceLabel: describeVoice(m.voice, { voice: m.defaults.voice, credit: m.voiceCredit }) }),
+      ),
+      ...manifests.map((m) => row(m)),
     ],
   };
 }
+
+/** 編集画面に渡す同梱キャラクターの値（bundled.get の結果から。名前・画像は表示だけ） */
+const bundledEditView = (c) => ({
+  id: c.id,
+  displayName: c.displayName,
+  builtin: false,
+  bundled: true,
+  slots: c.slots,
+  voice: c.voice,
+  persona: c.persona,
+  lines: c.lines,
+  customized: c.customized,
+});
 
 /** 作成／編集画面が扱う fps の入力（スロット → 数値）。不正な形は空として扱う（検証は repository） */
 const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== null ? req.fps : {});
@@ -338,18 +389,23 @@ const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== nul
 /**
  * キャラクター選択画面・作成／編集画面用IPC（F-17・3.6・v5.9）。それぞれ自分のウィンドウからの呼び出しだけを受け付ける。
  * 選択画面：character:list / character:select / character:open-create / character:open-edit、一覧が変わるたびに character:changed
- * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / list / remove / list-speakers / generate-lines、
+ * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / reset / list / remove / list-speakers / generate-lines、
  *                一覧が変わるたびに characterCreate:changed
  * 選んだフォルダのフルパスはメインだけが持ち（スロット名に紐付け）、レンダラーにはフォルダ名（末尾）と検証結果だけを返す。
+ * 同梱キャラクター（F-23）は黄色い丸と同じく声・キャラクター設定・セリフだけを保存でき（bundled.saveProfile）、「同梱の状態に戻す」（reset）がある。
  * @param {object} opts
  * @param {() => Electron.BrowserWindow | null} opts.getCharacterWindow
  * @param {() => Electron.BrowserWindow | null} opts.getCharacterCreateWindow
  * @param {ReturnType<import('./characterImport.js').createCharacterRepository>} opts.repository
+ * @param {ReturnType<import('./bundledCharacters.js').createBundledCharacters>} opts.bundled 同梱キャラクター
+ * @param {(win: Electron.BrowserWindow, displayName: string) => Promise<boolean>} opts.confirmReset 同梱の状態に戻してよいかの確認
  * @param {(id: string) => Promise<boolean>} opts.select 選択を保存する（存在確認込み）
  * @param {(opts?: { editId?: string }) => void} opts.openCreateWindow
  * @param {(win: Electron.BrowserWindow) => Promise<string | null>} opts.pickFolder OSのフォルダ選択ダイアログ
  * @param {(win: Electron.BrowserWindow, displayName: string) => Promise<boolean>} opts.confirmRemove 削除の確認
  * @param {() => Promise<{ name: string, styles: { id: number, name: string }[] }[]>} opts.listSpeakers VOICEVOX の話者一覧
+ * @param {ReturnType<import('./speakerNames.js').createSpeakerNames>} opts.speakerNames 覚えている話者名（選択画面の声の説明。v5.18）
+ * @param {() => { speakerId: number, speedScale: number, pitchScale: number }} opts.getDefaultVoice config.json の voicevox（声が未設定のキャラクターの声）
  * @param {(id: string) => void} opts.onCharacterUpdated キャラクターの画像・声・設定が変わった（選択中なら反映し直す）
  * @param {() => boolean} opts.isGeminiConfigured Gemini API キーが設定済みか（セリフの生成：Phase 14）
  * @param {ReturnType<import('./lineGenerator.js').createLineGenerator>['generate']} opts.generateLines セリフの案を作る
@@ -359,11 +415,15 @@ export function registerCharacterIpc({
   getCharacterWindow,
   getCharacterCreateWindow,
   repository,
+  bundled,
   select,
   openCreateWindow,
   pickFolder,
   confirmRemove,
+  confirmReset,
   listSpeakers,
+  speakerNames,
+  getDefaultVoice,
   onCharacterUpdated,
   isGeminiConfigured,
   generateLines,
@@ -377,7 +437,15 @@ export function registerCharacterIpc({
   const guardSelect = guard(fromSelect);
   const guardCreate = guard(fromCreate);
 
-  const list = async () => characterListView(await repository.list(), getSettings().character);
+  /** 選択画面の各キャラクターの声の説明（v5.18。名前は VOICEVOX が止まっていても、覚えている一覧から出す） */
+  const describeVoice = (voice, recorded = null) => voiceLabel({ voice, defaultVoice: getDefaultVoice(), nameOf: speakerNames.nameOf, recorded });
+  const list = async () => {
+    await speakerNames.load(); // 覚えている話者名（最初の1回だけファイルを読む）
+    return characterListView(await bundled.list(), await repository.list(), getSettings().character, {
+      defaultCharacterVoice: (await repository.getDefaultProfile()).voice,
+      describeVoice,
+    });
+  };
 
   /** 作成／編集画面で選んだフォルダ。スロット名 → { dir, frameCount } */
   let picked = {};
@@ -403,6 +471,8 @@ export function registerCharacterIpc({
 
   ipcMain.handle('character:list', (e) => {
     guardSelect(e);
+    // 話者名を VOICEVOX から取り直す（起動していなければ覚えている名前のまま）。変わったら出し直す
+    void speakerNames.refresh().then((changed) => changed && broadcast());
     return list();
   });
 
@@ -419,7 +489,7 @@ export function registerCharacterIpc({
 
   ipcMain.handle('character:open-edit', (e, id) => {
     guardSelect(e);
-    if (typeof id === 'string' && (id === DEFAULT_CHARACTER_ID || isValidCharacterId(id))) openCreateWindow({ editId: id });
+    if (typeof id === 'string' && (id === DEFAULT_CHARACTER_ID || isBundledCharacterId(id) || isValidCharacterId(id))) openCreateWindow({ editId: id });
   });
 
   /**
@@ -427,8 +497,9 @@ export function registerCharacterIpc({
    * 声の欄は版によらず常に出す（v5.11。話者を選べるかは characterCreate:list-speakers の available で決まる）。
    * linesGuide はセリフ欄（F-22）の案内（種類ごとの既定の文・使える差し込み・上限）。
    * canGenerate は「Gemini でセリフを作る」を押せるか（API キーが設定済みか。Phase 14）。
+   * 同梱キャラクターの customized は、利用者が編集して保存したか（「同梱の状態に戻す」を押せるか）。
    * @returns {{ mode: 'create', linesGuide, canGenerate } |
-   *   { mode: 'edit', linesGuide, canGenerate, character: { id, displayName, builtin, slots, voice, persona, lines } } |
+   *   { mode: 'edit', linesGuide, canGenerate, character: { id, displayName, builtin, bundled, slots, voice, persona, lines, customized? } } |
    *   { mode: 'missing' }}
    */
   ipcMain.handle('characterCreate:begin', async (e, editId) => {
@@ -438,23 +509,18 @@ export function registerCharacterIpc({
     const guide = linesGuide();
     const canGenerate = isGeminiConfigured();
     if (typeof editId !== 'string' || editId === '') return { mode: 'create', linesGuide: guide, canGenerate };
+    const edit = (character) => ({ mode: 'edit', linesGuide: guide, canGenerate, character });
     if (editId === DEFAULT_CHARACTER_ID) {
       const profile = await repository.getDefaultProfile();
-      return {
-        mode: 'edit',
-        linesGuide: guide,
-        canGenerate,
-        character: { id: DEFAULT_CHARACTER_ID, displayName: DEFAULT_CHARACTER_NAME, builtin: true, slots: {}, ...profile },
-      };
+      return edit({ id: DEFAULT_CHARACTER_ID, displayName: DEFAULT_CHARACTER_NAME, builtin: true, bundled: false, slots: {}, ...profile });
+    }
+    if (isBundledCharacterId(editId)) {
+      const c = await bundled.get(editId);
+      return c ? edit(bundledEditView(c)) : { mode: 'missing' };
     }
     const m = await repository.get(editId);
     if (!m) return { mode: 'missing' };
-    return {
-      mode: 'edit',
-      linesGuide: guide,
-      canGenerate,
-      character: { id: m.id, displayName: m.displayName, builtin: false, slots: m.slots, voice: m.voice, persona: m.persona, lines: m.lines },
-    };
+    return edit({ id: m.id, displayName: m.displayName, builtin: false, bundled: false, slots: m.slots, voice: m.voice, persona: m.persona, lines: m.lines });
   });
 
   /**
@@ -517,7 +583,9 @@ export function registerCharacterIpc({
   ipcMain.handle('characterCreate:list-speakers', async (e) => {
     guardCreate(e);
     try {
-      return { available: true, speakers: await listSpeakers() };
+      const speakers = await listSpeakers();
+      void speakerNames.remember(speakers); // 選択画面で VOICEVOX が止まっていても名前を出せるように覚えておく
+      return { available: true, speakers };
     } catch {
       return { available: false, speakers: [] };
     }
@@ -572,8 +640,24 @@ export function registerCharacterIpc({
         lines: lines === undefined ? current.lines : lines,
       });
       if (!result.ok) return failure(result.error);
+      await broadcast(); // 選択画面の声の説明を出し直す
       onCharacterUpdated(DEFAULT_CHARACTER_ID);
       return { ok: true, displayName: DEFAULT_CHARACTER_NAME, lines: result.profile.lines };
+    }
+    if (isBundledCharacterId(id)) {
+      const current = await bundled.get(id);
+      if (!current) return { ok: false, message: describeImportError({ code: 'not_found' }) };
+      const voice = voiceInput(req);
+      const lines = linesInput(req);
+      const result = await bundled.saveProfile(id, {
+        voice: voice === undefined ? current.voice : voice,
+        persona: req?.persona,
+        lines: lines === undefined ? current.lines : lines,
+      });
+      if (!result.ok) return failure(result.error);
+      await broadcast();
+      onCharacterUpdated(id);
+      return { ok: true, displayName: current.displayName, lines: result.profile.lines, customized: true };
     }
     const current = await repository.get(id);
     if (!current) return { ok: false, message: describeImportError({ code: 'not_found' }) };
@@ -598,6 +682,23 @@ export function registerCharacterIpc({
     await broadcast();
     onCharacterUpdated(id);
     return { ok: true, displayName: result.manifest.displayName, slots: result.manifest.slots, lines: result.manifest.lines };
+  });
+
+  /**
+   * 同梱キャラクターを同梱の状態に戻す（編集した声・キャラクター設定・セリフを消す。確認のダイアログを出す）。
+   * @returns {{ ok: true, character } | { ok: false, canceled: true } | { ok: false, message: string }}
+   */
+  ipcMain.handle('characterCreate:reset', async (e, id) => {
+    guardCreate(e);
+    const current = isBundledCharacterId(id) ? await bundled.get(id) : null;
+    if (!current) return { ok: false, message: describeImportError({ code: 'not_found' }) };
+    if (!(await confirmReset(getCharacterCreateWindow(), current.displayName))) return { ok: false, canceled: true };
+    const result = await bundled.resetProfile(id);
+    if (!result.ok) return failure(result.error);
+    if (!result.character) return { ok: false, message: describeImportError({ code: 'not_found' }) };
+    await broadcast();
+    onCharacterUpdated(id);
+    return { ok: true, character: bundledEditView(result.character) };
   });
 
   ipcMain.handle('characterCreate:list', (e) => {

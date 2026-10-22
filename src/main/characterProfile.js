@@ -5,7 +5,7 @@
 // persona … 自由記述（最大1000文字）。chatPersona.buildSystemPrompt でシステムプロンプトに組み込む（3.5）
 // lines   … 通知の読み上げとアイドルトークのセリフ（F-22・Phase 13）。検証・展開は characterLines.js
 
-import { parseLines } from './characterLines.js';
+import { parseLines, validateLines } from './characterLines.js';
 
 export const SPEED_MIN = 0.5;
 export const SPEED_MAX = 2.0;
@@ -67,6 +67,20 @@ export function parsePersona(raw) {
 export function parseDefaultProfile(raw) {
   const r = isPlainObject(raw) ? raw : {};
   return { voice: parseVoice(r.voice), persona: parsePersona(r.persona), lines: parseLines(r.lines) };
+}
+
+/**
+ * 画面から来た声・キャラクター設定・セリフをまとめて検証する（取り込み・編集・既定キャラクター・同梱キャラクターの保存で共通）。
+ * @returns {{ ok: true, voice: object | null, persona: string, lines: ReturnType<typeof parseLines> } | { ok: false, error: object }}
+ */
+export function validateCharacterProfile({ voice, persona, lines }) {
+  const v = validateVoice(voice);
+  if (!v.ok) return v;
+  const p = validatePersona(persona);
+  if (!p.ok) return p;
+  const l = validateLines(lines);
+  if (!l.ok) return l;
+  return { ok: true, voice: v.value, persona: p.value, lines: l.value };
 }
 
 /**

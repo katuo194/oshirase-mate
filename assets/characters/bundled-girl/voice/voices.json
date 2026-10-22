@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "voice": {
+    "speakerId": 2,
+    "speedScale": 1,
+    "pitchScale": 0
+  },
+  "clips": {
+    "おはようございます、マスター。": {
+      "file": "a4bd2e2e84a622f4.wav",
+      "durationMs": 2101
+    },
+    "今日も穏やかで良い一日になりますように。": {
+      "file": "c128dd42190e0af4.wav",
+      "durationMs": 2891
+    },
+    "朝の冷え込みには気をつけてくださいね。": {
+      "file": "aa5367a33ff4aa12.wav",
+      "durationMs": 2581
+    },
+    "温かい飲み物でもいかがでしょうか。": {
+      "file": "0f77ed739a73f200.wav",
+      "durationMs": 2379
+    },
+    "今日も一日、マイペースでまいりましょう。": {
+      "file": "644db6d62801c621.wav",
+      "durationMs": 2933
+    },
+    "マスター、そろそろお休みのお時間ですね。": {
+      "file": "ff1649795d5477ca.wav",
+      "durationMs": 2912
+    },
+    "夜更かしは体に障りますので気をつけてください。": {
+      "file": "62b071b11c0fd351.wav",
+      "durationMs": 3200
+    },
+    "明日も元気に過ごすためにも横になりましょう。": {
+      "file": "da74ee540cdd2b42.wav",
+      "durationMs": 2987
+    },
+    "画面を閉じてゆっくり身体を休めてくださいね。": {
+      "file": "786ea7a9b62a3d7d.wav",
+      "durationMs": 3157
+    },
+    "おやすみなさい、良い夢を見られますように。": {
+      "file": "55ff24dd2cb3de74.wav",
+      "durationMs": 3072
+    },
+    "マスター、お疲れは出ていませんか。": {
+      "file": "81ea1a8e34f357c8.wav",
+      "durationMs": 2453
+    },
+    "ずっと同じ姿勢で作業していませんか。": {
+      "file": "c34528a2a8821157.wav",
+      "durationMs": 2656
+    },
+    "たまには窓の外の景色を見てみましょう。": {
+      "file": "fec929b25d290785.wav",
+      "durationMs": 2677
+    },
+    "深呼吸をして肩の力を抜いてくださいね。": {
+      "file": "f799f0ec989c0dee.wav",
+      "durationMs": 2965
+    },
+    "何かお手伝いできることはありますか。": {
+      "file": "764130dff3339ddb.wav",
+      "durationMs": 2464
+    },
+    "資料の整理なら私に任せてください。": {
+      "file": "c28e8831975064b0.wav",
+      "durationMs": 2699
+    },
+    "お気に入りの音楽でも流しましょうか。": {
+      "file": "04ae7d54c81243d8.wav",
+      "durationMs": 2453
+    },
+    "時々こうしてのんびりするのも大切ですよ。": {
+      "file": "74cf751edb1ac868.wav",
+      "durationMs": 2901
+    },
+    "マスターの知的好奇心は素晴らしいですね。": {
+      "file": "5056e89170693b7c.wav",
+      "durationMs": 2805
+    },
+    "デジタル空間の空気は今日も快適です。": {
+      "file": "6fab905ca04265d4.wav",
+      "durationMs": 2891
+    },
+    "おや、少し考え事をしているのですか。": {
+      "file": "f1c98e1492298027.wav",
+      "durationMs": 3136
+    },
+    "お茶の補充をしてまいりましょうか。": {
+      "file": "fd48589f8f3a6081.wav",
+      "durationMs": 2187
+    },
+    "分からないことがあればいつでも聞いてくださいね。": {
+      "file": "04b555248410f335.wav",
+      "durationMs": 2869
+    },
+    "マイペースが一番の近道ですよ。": {
+      "file": "2f6e6df1975e5480.wav",
+      "durationMs": 2379
+    },
+    "お仕事が順調に進むようサポートします。": {
+      "file": "0b75e705aafccfb0.wav",
+      "durationMs": 2891
+    },
+    "集中しすぎるとお水を忘れがちになりますよ。": {
+      "file": "a8814649b044d3b7.wav",
+      "durationMs": 3147
+    },
+    "温かいお茶で一服しませんか。": {
+      "file": "4fff68dd636d5f96.wav",
+      "durationMs": 2197
+    },
+    "マスターの笑顔は研究所の癒やしです。": {
+      "file": "97de4029c809324b.wav",
+      "durationMs": 2763
+    },
+    "いつでもあなたの傍で応援していますよ。": {
+      "file": "48d1d037923d8451.wav",
+      "durationMs": 2677
+    },
+    "今日も一緒にゆっくり歩んでいきましょう。": {
+      "file": "d2e42b5403dad8cb.wav",
+      "durationMs": 2528
+    },
+    "マスター、予定のお時間が近づいていますよ。": {
+      "file": "067c37e3eb407999.wav",
+      "durationMs": 3221
+    },
+    "そろそろお時間です。準備をお願いしますね。": {
+      "file": "a3a9df38c88d8813.wav",
+      "durationMs": 3275
+    },
+    "マスター、本日の予定が入っていますよ。": {
+      "file": "4e11f84303946c2a.wav",
+      "durationMs": 2965
+    },
+    "今日一日の予定をお知らせしますね。": {
+      "file": "b5903a1359e9bec7.wav",
+      "durationMs": 2571
+    },
+    "マスター、期限の近いタスクがありますよ。": {
+      "file": "62d753aee0e28c24.wav",
+      "durationMs": 2923
+    },
+    "お時間のある時に、タスクを進めましょうね。": {
+      "file": "c2cbaf58750e69cf.wav",
+      "durationMs": 3157
+    },
+    "マスター、大事なメールが届いています。": {
+      "file": "01cd09ab980f7a9c.wav",
+      "durationMs": 2805
+    },
+    "新しいメールが届いていますよ。ご確認くださいね。": {
+      "file": "14cc4f76eee204fb.wav",
+      "durationMs": 3744
+    }
+  }
+}

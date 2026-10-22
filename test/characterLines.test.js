@@ -10,16 +10,19 @@ import {
   NOTIFY_COUNT_MAX,
   NOTIFY_LINE_MAX,
   SPEECH_MAX,
+  SPOKEN_TODO,
   describeLinesError,
   effectiveLines,
   emptyLines,
   isUsableLine,
   linesGuide,
   parseLines,
+  plainSpeech,
   renderSpeech,
   validateLines,
 } from '../src/main/characterLines.js';
 import { PHRASE_SETS } from '../src/main/idleTalkPhrases.js';
+import { idlePresentation } from '../src/main/notificationView.js';
 
 const ok = (value) => ({ ok: true, value });
 /** emptyLines に一部の種類だけを入れたもの */
@@ -251,5 +254,13 @@ describe('characterLines / 画面の案内（linesGuide）', () => {
     expect(g[6]).toMatchObject({ placeholders: [], lineMax: IDLE_LINE_MAX, countMax: 30 });
     expect(g[6].defaults).toHaveLength(20);
     expect(g[7]).toMatchObject({ label: 'チャットの終わり', defaults: [...DEFAULT_CHAT_LINES.closing], placeholders: [], lineMax: CHAT_LINE_MAX, countMax: 5 });
+  });
+});
+
+describe('characterLines / 差し込みの無い文の読み上げ文（plainSpeech・F-23）', () => {
+  it('TODO を読みに置き換え、SPEECH_MAX 文字までにする（アイドルトークと固定ボイスで同じ形）', () => {
+    expect(plainSpeech('TODO を見てね')).toBe(`${SPOKEN_TODO} を見てね`);
+    expect([...plainSpeech('あ'.repeat(SPEECH_MAX + 5))]).toHaveLength(SPEECH_MAX);
+    expect(idlePresentation({ id: 'i', text: 'ToDo だよ' }).speech).toBe(plainSpeech('ToDo だよ'));
   });
 });

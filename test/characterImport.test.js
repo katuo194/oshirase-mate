@@ -3,7 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  BUNDLED_CHARACTER_IDS,
   CANVAS_SIZE,
+  FPS_DEFAULT,
   PNG_HEADER_BYTES,
   buildManifest,
   characterFrameUrl,
@@ -11,6 +13,7 @@ import {
   createCharacterRepository,
   describeImportError,
   frameFileNames,
+  isBundledCharacterId,
   isValidCharacterId,
   parseManifest,
   readPngHeader,
@@ -110,8 +113,8 @@ describe('checkFrameHeaders（キャンバスサイズ・RGBA）', () => {
 
 describe('入力値の検証', () => {
   it('fps：未入力は30、1〜60の整数のみ', () => {
-    expect(validateFps(undefined)).toEqual({ ok: true, value: 30 });
-    expect(validateFps('')).toEqual({ ok: true, value: 30 });
+    expect(validateFps(undefined)).toEqual({ ok: true, value: FPS_DEFAULT });
+    expect(validateFps('')).toEqual({ ok: true, value: FPS_DEFAULT });
     expect(validateFps(60)).toEqual({ ok: true, value: 60 });
     expect(validateFps('24')).toEqual({ ok: true, value: 24 });
     for (const bad of [0, 61, 29.97, 'abc', -1, NaN]) expect(validateFps(bad).ok).toBe(false);
@@ -137,6 +140,13 @@ describe('入力値の検証', () => {
   it('キャラクターID：英小文字・数字・ハイフンのみ、default は予約', () => {
     expect(isValidCharacterId('emotelab-3f9a1c2e')).toBe(true);
     for (const bad of ['default', '', '../x', 'Emotelab', 'a/b', 'a.b', '-x', 'x'.repeat(65), 42]) expect(isValidCharacterId(bad)).toBe(false);
+  });
+
+  it('同梱キャラクターの ID（bundled- で始まるもの）は取り込んだキャラクターには使えない（F-23）', () => {
+    for (const id of [...BUNDLED_CHARACTER_IDS, 'bundled-other']) expect(isValidCharacterId(id)).toBe(false);
+    expect(BUNDLED_CHARACTER_IDS.every(isBundledCharacterId)).toBe(true);
+    expect(isBundledCharacterId('bundled-other')).toBe(false);
+    expect(isBundledCharacterId('default')).toBe(false);
   });
 
   it('スロットの保存先フォルダ名は . を - に', () => {
@@ -233,6 +243,18 @@ describe('mascot-character:// の URL', () => {
     ];
     for (const url of bad) expect(resolveCharacterUrl(url, root)).toBeNull();
   });
+
+  it('同梱キャラクター（F-23）はアプリの中のフォルダ（bundledDir）を指す。bundledDir が無ければ・同梱でない bundled- は指せない', () => {
+    const bundledDir = path.join(os.tmpdir(), 'app', 'assets', 'characters');
+    const url = characterFrameUrl('bundled-boy', 'notify-gmail', 3, '2026-10-20');
+    expect(resolveCharacterUrl(url, root, bundledDir)).toBe(path.join(bundledDir, 'bundled-boy', 'notify-gmail', '003.png'));
+    expect(resolveCharacterUrl(url, root)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-other/rest/000.png', root, bundledDir)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-boy/voice/000.png', root, bundledDir)).toBeNull();
+    expect(resolveCharacterUrl('mascot-character://bundled-boy/rest/manifest.json', root, bundledDir)).toBeNull();
+    // 取り込んだキャラクターは従来どおり userData の下
+    expect(resolveCharacterUrl('mascot-character://emotelab-3f9a1c2e/rest/000.png', root, bundledDir)).toBe(path.join(root, 'emotelab-3f9a1c2e', 'rest', '000.png'));
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -311,7 +333,7 @@ describe('createCharacterRepository / 取り込み・一覧・削除', () => {
       displayName: '星空寝夢',
       importedAt: '2026-09-21T07:30:00.000Z',
       slots: {
-        rest: { folder: 'rest', frameCount: 3, fps: 30 },
+        rest: { folder: 'rest', frameCount: 3, fps: FPS_DEFAULT },
         notify: { folder: 'notify', frameCount: 2, fps: 24 },
         'notify.calendar': null,
         'notify.tasks': null,
@@ -583,7 +605,7 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
       importedAt: m.importedAt,
       voice: { speakerId: 1, speedScale: 0.9, pitchScale: 0.05 },
       persona: '元気',
-      slots: { rest: { frameCount: 3, fps: 12 }, notify: { frameCount: 2, fps: 24 }, 'notify.gmail': { frameCount: 2, fps: 30 } },
+      slots: { rest: { frameCount: 3, fps: 12 }, notify: { frameCount: 2, fps: 24 }, 'notify.gmail': { frameCount: 2, fps: FPS_DEFAULT } },
     });
     expect(r.manifest.updatedAt).not.toBe(m.updatedAt);
     expect(await repo.get(m.id)).toEqual(r.manifest);
@@ -616,9 +638,9 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
     });
     expect(r.ok).toBe(true);
     expect(r.manifest.slots).toMatchObject({
-      rest: { frameCount: 3, fps: 30 },
+      rest: { frameCount: 3, fps: FPS_DEFAULT },
       notify: { frameCount: 5, fps: 60 },
-      'notify.calendar': { frameCount: 4, fps: 30 },
+      'notify.calendar': { frameCount: 4, fps: FPS_DEFAULT },
       'notify.gmail': null,
       'notify.tasks': null,
     });
@@ -716,5 +738,11 @@ describe('createCharacterRepository / 既定キャラクターの声と設定（
       error: { code: 'lines_unknown_placeholder', placeholder: 'date' },
     });
     expect(await repo.getDefaultProfile()).toEqual(r.profile);
+  });
+});
+
+describe('fps の既定値（v5.18）', () => {
+  it('EmoteLab で 60fps で書き出すことが多いため、未入力は 60', () => {
+    expect(FPS_DEFAULT).toBe(60);
   });
 });

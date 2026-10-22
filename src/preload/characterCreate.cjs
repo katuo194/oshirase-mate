@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('characterCreateApi', {
   importCharacter: (req) => ipcRenderer.invoke('characterCreate:import', req),
   // 編集の保存。{ displayName, slots: { [slot]: 'keep' | 'picked' | 'none' }, fps, voice, persona, lines }
   save: (id, req) => ipcRenderer.invoke('characterCreate:save', String(id), req),
+  // 同梱キャラクター（F-23）を同梱の状態に戻す（メインが確認のダイアログを出す）。{ ok, character? , canceled?, message? }
+  resetBundled: (id) => ipcRenderer.invoke('characterCreate:reset', String(id)),
   // VOICEVOX の話者一覧（声の選択用）。{ available, speakers: [{ name, styles: [{ id, name }] }] }
   listSpeakers: () => ipcRenderer.invoke('characterCreate:list-speakers'),
   // セリフの案を Gemini で作る（Phase 14）。{ displayName, persona, replace }。保存はしない

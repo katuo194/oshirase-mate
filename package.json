@@ -18,6 +18,9 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "test": "vitest run",
+    "bundle:check": "node scripts/bundle-character.mjs check",
+    "bundle:export": "node scripts/bundle-character.mjs export",
+    "bundle:voices": "node scripts/bundle-character.mjs voices",
     "dist:shared": "electron-builder --win --config build/electron-builder.shared.cjs && node scripts/check-dist.mjs post shared",
     "dist:personal": "node scripts/check-dist.mjs pre personal && electron-builder --win --config build/electron-builder.personal.cjs && node scripts/check-dist.mjs post personal"
   },

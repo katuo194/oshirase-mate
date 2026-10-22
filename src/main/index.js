@@ -33,7 +33,9 @@ import {
   registerShortcutIpc,
   registerVoiceIpc,
 } from './ipc.js';
-import { DEFAULT_CHARACTER_ID, PROTOCOL_SCHEME, createCharacterRepository, resolveCharacterUrl } from './characterImport.js';
+import { DEFAULT_CHARACTER_ID, PROTOCOL_SCHEME, createCharacterRepository, isBundledCharacterId, resolveCharacterUrl } from './characterImport.js';
+import { createBundledCharacters } from './bundledCharacters.js';
+import { createSpeakerNames } from './speakerNames.js';
 import { DEFAULT_VIEW, buildCharacterView } from './characterMotions.js';
 import { resolveVoiceConfig } from './characterProfile.js';
 import { buildSystemPrompt } from './chatPersona.js';
@@ -108,6 +110,12 @@ let chat = null;
 let idleTalk = null;
 /** 取り込んだキャラクター（F-17。userData/characters） */
 let characters = null;
+/** 同梱キャラクター（F-23。アプリの中の assets/characters。利用者が編集した値は userData/characters/<id>-profile.json） */
+let bundledCharacters = null;
+/** 選択中の同梱キャラクターの固定ボイス（fixedVoice.js）。同梱キャラクターでない・録音が無ければ null。applyCharacter が更新する */
+let activeFixedVoice = null;
+/** 設定画面のボイス欄（クレジット表記）を出し直す（registerVoiceIpc の戻り値） */
+let voiceIpc = null;
 /**
  * 選択中のキャラクターの声・キャラクター設定（v5.9）・セリフ（F-22）。applyCharacter が更新する。
  * 声は通知・アイドルトーク・チャットのすべての読み上げに、キャラクター設定はチャットの人格に、
@@ -119,6 +127,15 @@ let phrasePicker = createPhrasePicker();
 
 /** 実際に使う VOICEVOX の声：選択中のキャラクターの声、未設定なら config.json の voicevox（6.1） */
 const effectiveVoiceConfig = () => resolveVoiceConfig(activeCharacter.voice, getVoicevoxConfig());
+/**
+ * 設定画面のボイス欄に出す固定ボイスの状態。credit は今の声で録音を使えるときのクレジット表記、
+ * changed は録音があるのに利用者が声を変えたため使えないとき true（そのことを案内する。v5.18）
+ */
+const fixedVoiceState = () => {
+  if (!activeFixedVoice) return { credit: null, changed: false };
+  const usable = activeFixedVoice.usable(effectiveVoiceConfig());
+  return { credit: usable ? activeFixedVoice.credit : null, changed: !usable };
+};
 
 /** ネットワーク状態を見る間隔。net.isOnline() はローカルの状態を読むだけ。疎通確認（通信あり）はオフライン表示中だけ */
 const ONLINE_WATCH_MS = 30 * 1000;
@@ -283,7 +300,7 @@ if (!app.requestSingleInstanceLock()) {
     // VOICEVOX（F-13）。個人版・共有版とも、有効・無効は接続状態（疎通確認）だけで決まる（v5.11）。
     // 接続状態は起動時・設定画面を開いたとき・再確認・読み上げのたびに確かめる（定期ポーリングはしない）
     voicevox = createVoicevox({ fetch: globalThis.fetch, log });
-    registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig: effectiveVoiceConfig });
+    voiceIpc = registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig: effectiveVoiceConfig, getFixedVoiceState: fixedVoiceState });
     // 起動時の接続確認と話者の先読みは、選択中のキャラクターの声が決まってから applyCharacter で行う
 
     // Gemini APIキー（F-16）。safeStorage で暗号化して userData/gemini-key.enc に保存し、設定画面へは状態（設定済みか）だけを渡す
@@ -302,8 +319,11 @@ if (!app.requestSingleInstanceLock()) {
     const charactersDir = path.join(app.getPath('userData'), 'characters');
     characters = createCharacterRepository({ rootDir: charactersDir, fs: fsp, log });
     void characters.cleanupPartial();
+    // 同梱キャラクター（F-23）。画像・セリフ・固定ボイスはアプリの中（配布版では app.asar の中。Electron の fs で読める）
+    const bundledDir = path.join(app.getAppPath(), 'assets', 'characters');
+    bundledCharacters = createBundledCharacters({ assetsDir: bundledDir, profileDir: charactersDir, fs: fsp, log });
     protocol.handle(PROTOCOL_SCHEME, async (request) => {
-      const filePath = resolveCharacterUrl(request.url, charactersDir);
+      const filePath = resolveCharacterUrl(request.url, charactersDir, bundledDir);
       if (!filePath) return new Response(null, { status: 404 });
       try {
         const data = await fsp.readFile(filePath);
@@ -317,12 +337,21 @@ if (!app.requestSingleInstanceLock()) {
       getCharacterWindow,
       getCharacterCreateWindow,
       repository: characters,
+      bundled: bundledCharacters,
       select: async (id) => {
-        const ids = [DEFAULT_CHARACTER_ID, ...(await characters.list()).map((m) => m.id)];
+        const ids = [DEFAULT_CHARACTER_ID, ...[...(await bundledCharacters.list()), ...(await characters.list())].map((m) => m.id)];
         return setCharacter(id, ids).ok;
       },
       openCreateWindow: openCharacterCreateWindow,
       listSpeakers: () => voicevox.listSpeakers(),
+      // 選択画面の声の説明（v5.18）。VOICEVOX から取れた話者名を userData に覚えておき、止まっていても名前を出す
+      speakerNames: createSpeakerNames({
+        filePath: path.join(app.getPath('userData'), 'voicevox-speakers.json'),
+        fs: fsp,
+        listSpeakers: () => voicevox.listSpeakers(),
+        log,
+      }),
+      getDefaultVoice: getVoicevoxConfig,
       // 選択中のキャラクターが編集されたら、表示・声・チャットの人格を反映し直す
       onCharacterUpdated: (id) => {
         if (id === activeCharacter.id) void applyCharacter(log);
@@ -340,6 +369,18 @@ if (!app.requestSingleInstanceLock()) {
           title: 'キャラクターの削除',
           message: `「${displayName}」を削除しますか？`,
           detail: '取り込んだ画像も削除されます（EmoteLab の書き出しフォルダは削除しません）。',
+        });
+        return r.response === 0;
+      },
+      confirmReset: async (win, displayName) => {
+        const r = await dialog.showMessageBox(win, {
+          type: 'question',
+          buttons: ['戻す', 'キャンセル'],
+          defaultId: 1,
+          cancelId: 1,
+          title: '同梱の状態に戻す',
+          message: `「${displayName}」の声・キャラクター設定・セリフを同梱の状態に戻しますか？`,
+          detail: '編集して保存した内容は消えます。',
         });
         return r.response === 0;
       },
@@ -472,13 +513,16 @@ let voiceWarmedUp = false;
 
 /**
  * 設定（6.1 character）のキャラクターを反映する：マスコットの表示・読み上げの声・チャットの人格（v5.9）。
- * 存在しない・manifest が壊れている ID は既定キャラクター。
+ * 存在しない・manifest が壊れている ID は既定キャラクター。同梱キャラクター（F-23）は固定ボイスも読み込む。
  */
 async function applyCharacter(log) {
   const request = ++characterRequest;
   const id = getSettings().character;
-  const manifest = id === DEFAULT_CHARACTER_ID ? null : await characters.get(id).catch(() => null);
+  let manifest = null;
+  if (isBundledCharacterId(id)) manifest = await bundledCharacters.get(id).catch(() => null);
+  else if (id !== DEFAULT_CHARACTER_ID) manifest = await characters.get(id).catch(() => null);
   const defaultProfile = manifest ? null : await characters.getDefaultProfile();
+  const fixedVoice = manifest && isBundledCharacterId(manifest.id) ? await bundledCharacters.loadFixedVoice(manifest).catch(() => null) : null;
   if (request !== characterRequest) return; // より新しい選択が来た
   if (id !== DEFAULT_CHARACTER_ID && !manifest) log.warn(`[character] キャラクターが見つからないため既定キャラクターで表示します: ${id}`);
 
@@ -486,9 +530,11 @@ async function applyCharacter(log) {
   activeCharacter = manifest
     ? { id: manifest.id, builtin: false, displayName: manifest.displayName, voice: manifest.voice, persona: manifest.persona, lines: manifest.lines }
     : { id: DEFAULT_CHARACTER_ID, builtin: true, displayName: '', ...defaultProfile };
+  activeFixedVoice = fixedVoice;
   // セリフ（F-22）：設定の無い種類は今の固定文。袋は作り直す（前のキャラクターの文を引き継がない）
   phrasePicker = createPhrasePicker({ lines: activeCharacter.lines });
   mascot?.setCharacter(buildCharacterView(manifest));
+  voiceIpc?.refresh(); // 設定画面のクレジット表記（固定ボイスの話者）を出し直す
 
   // 起動時と声が変わったときは、接続状態（設定画面のクレジット表記「VOICEVOX:話者名」）を確かめ直し、
   // 話者を先に読み込ませる（VOICEVOX を起動した直後は、その話者の初回の合成が遅いため。v5.10）
@@ -541,11 +587,13 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
     log,
   });
 
-  // 読み上げ（F-13）。音声ファイルは userData/tts/ に一意名で置き、表示が終わったら削除する（前回の残骸は起動時に掃除）
+  // 読み上げ（F-13）。音声ファイルは userData/tts/ に一意名で置き、表示が終わったら削除する（前回の残骸は起動時に掃除）。
+  // 同梱キャラクターは、録音してある文を VOICEVOX を使わずに流す（F-23。チャットの読み上げは返事が毎回違うので使わない）
   const voiceReader = createVoiceReader({
     voicevox,
     getSettings,
     getVoiceConfig: effectiveVoiceConfig,
+    getFixedVoice: () => activeFixedVoice,
     dir: path.join(app.getPath('userData'), 'tts'),
     fs: fsp,
     toUrl: (p) => pathToFileURL(p).href,
@@ -563,7 +611,7 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
   function speak(presentation) {
     if (!presentation.voicePending) return;
     presenter.extend(presentation.id, presentation.timing.maxVoiceHoldMs + presentation.timing.outMs);
-    void voiceReader.prepare(presentation.id, presentation.speech).then((voice) => {
+    void voiceReader.prepare(presentation.id, presentation.speech, { speechKind: presentation.speechKind }).then((voice) => {
       if (!voice) {
         if (presenter.currentId() === presentation.id) mascot.sendVoice({ id: presentation.id, url: null });
         return;
