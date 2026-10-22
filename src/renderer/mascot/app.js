@@ -249,9 +249,17 @@ function playSfx(sfx, onEnd) {
 //   - ミュートされたら止めて捨てる（3.7。解除しても再生しない）
 //   - 読み上げる通知（presentation.voicePending）は、音声が届くまで吹き出しを保持する（上限 maxVoiceHoldMs。v5.10：合成が遅い環境向け）。
 //     合成できなかったときはメインが url: null を送ってくるので、保持を解いて holdMs 基準に戻す
+//   - 表示の開始より先に届いた音声（同梱キャラクターの録音はすぐ届く：F-23）は id ごとに覚えておき、その表示が始まったら使う
+//     （何も表示していない状態からの通知・再表示では、ウィンドウの拡大が終わるまで表示の開始が待たされるため）
 let voiceVolume = 1;
 /** 表示の開始より先に届いた「合成できなかった」の id（ウィンドウの切り替え中など） */
 let noVoiceFor = null;
+/**
+ * 表示の開始より先に届いた音声（{ id, url, volume }）。同梱キャラクターの録音（F-23）はすぐ届くため、
+ * 何も表示していない状態からの通知・ダブルクリックの再表示では、ウィンドウの切り替え（拡大）が終わって表示が始まる前に着く。
+ * その id の表示が始まったら使い、別の表示が始まったら捨てる
+ */
+let earlyVoice = null;
 
 function stopVoice(s) {
   const v = s?.voice;
@@ -288,7 +296,16 @@ window.mascot.onVoice(({ id, url, volume }) => {
     else noVoiceFor = id;
     return;
   }
-  if (!s || s.presentation.id !== id || s.out) return; // 表示が終わった・絞りに入った後の音声は捨てる（ファイルはメインが消す）
+  if (!s || s.presentation.id !== id) {
+    earlyVoice = { id, url, volume }; // まだ表示が始まっていない（切り替え中）。始まったら startShow が使う
+    return;
+  }
+  if (s.out) return; // 絞りに入った後の音声は捨てる（ファイルはメインが消す）
+  attachVoice(s, url, volume);
+});
+
+/** 表示中の演出に音声を付け、再生できる状態なら鳴らす */
+function attachVoice(s, url, volume) {
   s.voicePending = false;
   stopVoice(s);
   const a = new Audio(url);
@@ -301,7 +318,7 @@ window.mascot.onVoice(({ id, url, volume }) => {
   a.addEventListener('error', markEnd);
   s.voice = v;
   startVoiceIfReady(s);
-});
+}
 
 window.mascot.onSettings(({ muted, sfxVolume, voiceVolume: vv }) => {
   if (Number.isFinite(vv)) voiceVolume = clamp01(vv);
@@ -309,6 +326,7 @@ window.mascot.onSettings(({ muted, sfxVolume, voiceVolume: vv }) => {
     // ミュート中は効果音と読み上げを停止して捨てる（アニメーションと吹き出しは継続）。保持時間は元の holdMs 基準に戻る
     if (audio) audio.pause();
     audio = null;
+    earlyVoice = null;
     if (show) {
       stopVoice(show);
       show.voicePending = false; // メインも合成結果を破棄する
@@ -425,6 +443,10 @@ function startShow({ presentation, sfx }) {
   });
   if (played) setTimeout(() => openVoiceGate(s), t.voiceGateMaxMs ?? 1500); // 効果音の終わりが分からなくても解禁
   else s.gateOpen = true; // 効果音なし：読み上げは届き次第すぐ
+  // 表示の開始より先に届いていた音声（同梱の録音など）。再生は上の解禁（効果音の後）を待つ
+  const early = earlyVoice;
+  earlyVoice = null;
+  if (early && early.id === presentation.id) attachVoice(s, early.url, early.volume);
   s.raf = requestAnimationFrame(tick);
 }
 // ---- アイドルトークの中断（Phase 7）。通知が来たので、表示中のアイドルトークを今から約0.5秒で絞って終える（完了は通常どおり showDone）----
