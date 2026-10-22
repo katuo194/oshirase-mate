@@ -35,6 +35,7 @@ import {
 } from './ipc.js';
 import { DEFAULT_CHARACTER_ID, PROTOCOL_SCHEME, createCharacterRepository, isBundledCharacterId, resolveCharacterUrl } from './characterImport.js';
 import { createBundledCharacters } from './bundledCharacters.js';
+import { createSpeakerNames } from './speakerNames.js';
 import { DEFAULT_VIEW, buildCharacterView } from './characterMotions.js';
 import { resolveVoiceConfig } from './characterProfile.js';
 import { buildSystemPrompt } from './chatPersona.js';
@@ -126,8 +127,15 @@ let phrasePicker = createPhrasePicker();
 
 /** 実際に使う VOICEVOX の声：選択中のキャラクターの声、未設定なら config.json の voicevox（6.1） */
 const effectiveVoiceConfig = () => resolveVoiceConfig(activeCharacter.voice, getVoicevoxConfig());
-/** 固定ボイスを今の声で使えるときのクレジット表記（設定画面。利用者が声を変えていれば録音は使わないので出さない） */
-const fixedVoiceCredit = () => (activeFixedVoice?.usable(effectiveVoiceConfig()) ? activeFixedVoice.credit : null);
+/**
+ * 設定画面のボイス欄に出す固定ボイスの状態。credit は今の声で録音を使えるときのクレジット表記、
+ * changed は録音があるのに利用者が声を変えたため使えないとき true（そのことを案内する。v5.18）
+ */
+const fixedVoiceState = () => {
+  if (!activeFixedVoice) return { credit: null, changed: false };
+  const usable = activeFixedVoice.usable(effectiveVoiceConfig());
+  return { credit: usable ? activeFixedVoice.credit : null, changed: !usable };
+};
 
 /** ネットワーク状態を見る間隔。net.isOnline() はローカルの状態を読むだけ。疎通確認（通信あり）はオフライン表示中だけ */
 const ONLINE_WATCH_MS = 30 * 1000;
@@ -292,7 +300,7 @@ if (!app.requestSingleInstanceLock()) {
     // VOICEVOX（F-13）。個人版・共有版とも、有効・無効は接続状態（疎通確認）だけで決まる（v5.11）。
     // 接続状態は起動時・設定画面を開いたとき・再確認・読み上げのたびに確かめる（定期ポーリングはしない）
     voicevox = createVoicevox({ fetch: globalThis.fetch, log });
-    voiceIpc = registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig: effectiveVoiceConfig, getFixedVoiceCredit: fixedVoiceCredit });
+    voiceIpc = registerVoiceIpc({ getSettingsWindow, voicevox, getVoiceConfig: effectiveVoiceConfig, getFixedVoiceState: fixedVoiceState });
     // 起動時の接続確認と話者の先読みは、選択中のキャラクターの声が決まってから applyCharacter で行う
 
     // Gemini APIキー（F-16）。safeStorage で暗号化して userData/gemini-key.enc に保存し、設定画面へは状態（設定済みか）だけを渡す
@@ -336,6 +344,14 @@ if (!app.requestSingleInstanceLock()) {
       },
       openCreateWindow: openCharacterCreateWindow,
       listSpeakers: () => voicevox.listSpeakers(),
+      // 選択画面の声の説明（v5.18）。VOICEVOX から取れた話者名を userData に覚えておき、止まっていても名前を出す
+      speakerNames: createSpeakerNames({
+        filePath: path.join(app.getPath('userData'), 'voicevox-speakers.json'),
+        fs: fsp,
+        listSpeakers: () => voicevox.listSpeakers(),
+        log,
+      }),
+      getDefaultVoice: getVoicevoxConfig,
       // 選択中のキャラクターが編集されたら、表示・声・チャットの人格を反映し直す
       onCharacterUpdated: (id) => {
         if (id === activeCharacter.id) void applyCharacter(log);

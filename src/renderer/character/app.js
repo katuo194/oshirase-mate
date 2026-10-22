@@ -44,6 +44,13 @@ function render(view) {
       sub.className = 'sub';
       sub.textContent = subText(c);
       meta.append(name, sub);
+      // 読み上げの声（v5.18。「声：ずんだもん（ノーマル）・録音あり」など。名前はメインが VOICEVOX の一覧から決める）
+      if (c.voiceLabel) {
+        const voice = document.createElement('span');
+        voice.className = 'sub';
+        voice.textContent = c.voiceLabel;
+        meta.append(voice);
+      }
 
       const edit = document.createElement('button');
       edit.type = 'button';
