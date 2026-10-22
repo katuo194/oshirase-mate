@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BUNDLED_CHARACTER_IDS,
   CANVAS_SIZE,
+  FPS_DEFAULT,
   PNG_HEADER_BYTES,
   buildManifest,
   characterFrameUrl,
@@ -112,8 +113,8 @@ describe('checkFrameHeaders（キャンバスサイズ・RGBA）', () => {
 
 describe('入力値の検証', () => {
   it('fps：未入力は30、1〜60の整数のみ', () => {
-    expect(validateFps(undefined)).toEqual({ ok: true, value: 30 });
-    expect(validateFps('')).toEqual({ ok: true, value: 30 });
+    expect(validateFps(undefined)).toEqual({ ok: true, value: FPS_DEFAULT });
+    expect(validateFps('')).toEqual({ ok: true, value: FPS_DEFAULT });
     expect(validateFps(60)).toEqual({ ok: true, value: 60 });
     expect(validateFps('24')).toEqual({ ok: true, value: 24 });
     for (const bad of [0, 61, 29.97, 'abc', -1, NaN]) expect(validateFps(bad).ok).toBe(false);
@@ -332,7 +333,7 @@ describe('createCharacterRepository / 取り込み・一覧・削除', () => {
       displayName: '星空寝夢',
       importedAt: '2026-09-21T07:30:00.000Z',
       slots: {
-        rest: { folder: 'rest', frameCount: 3, fps: 30 },
+        rest: { folder: 'rest', frameCount: 3, fps: FPS_DEFAULT },
         notify: { folder: 'notify', frameCount: 2, fps: 24 },
         'notify.calendar': null,
         'notify.tasks': null,
@@ -604,7 +605,7 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
       importedAt: m.importedAt,
       voice: { speakerId: 1, speedScale: 0.9, pitchScale: 0.05 },
       persona: '元気',
-      slots: { rest: { frameCount: 3, fps: 12 }, notify: { frameCount: 2, fps: 24 }, 'notify.gmail': { frameCount: 2, fps: 30 } },
+      slots: { rest: { frameCount: 3, fps: 12 }, notify: { frameCount: 2, fps: 24 }, 'notify.gmail': { frameCount: 2, fps: FPS_DEFAULT } },
     });
     expect(r.manifest.updatedAt).not.toBe(m.updatedAt);
     expect(await repo.get(m.id)).toEqual(r.manifest);
@@ -637,9 +638,9 @@ describe('createCharacterRepository / 編集（v5.9）', () => {
     });
     expect(r.ok).toBe(true);
     expect(r.manifest.slots).toMatchObject({
-      rest: { frameCount: 3, fps: 30 },
+      rest: { frameCount: 3, fps: FPS_DEFAULT },
       notify: { frameCount: 5, fps: 60 },
-      'notify.calendar': { frameCount: 4, fps: 30 },
+      'notify.calendar': { frameCount: 4, fps: FPS_DEFAULT },
       'notify.gmail': null,
       'notify.tasks': null,
     });
@@ -737,5 +738,11 @@ describe('createCharacterRepository / 既定キャラクターの声と設定（
       error: { code: 'lines_unknown_placeholder', placeholder: 'date' },
     });
     expect(await repo.getDefaultProfile()).toEqual(r.profile);
+  });
+});
+
+describe('fps の既定値（v5.18）', () => {
+  it('EmoteLab で 60fps で書き出すことが多いため、未入力は 60', () => {
+    expect(FPS_DEFAULT).toBe(60);
   });
 });

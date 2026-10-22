@@ -7,7 +7,7 @@ const SLOTS = [
   { slot: 'notify.tasks', label: 'TODO', required: false },
   { slot: 'notify.gmail', label: '重要メール', required: false },
 ];
-const FPS_DEFAULT = 30;
+const FPS_DEFAULT = 60;
 const FPS_MIN = 1;
 const FPS_MAX = 60;
 const PERSONA_MAX = 1000;

@@ -32,7 +32,7 @@ export const isBundledCharacterId = (id) => BUNDLED_CHARACTER_IDS.includes(id);
 export const SLOT_NAMES = Object.freeze(['rest', 'notify', 'notify.calendar', 'notify.tasks', 'notify.gmail']);
 export const REQUIRED_SLOTS = Object.freeze(['rest', 'notify']);
 
-export const FPS_DEFAULT = 30;
+export const FPS_DEFAULT = 60;
 export const FPS_MIN = 1;
 export const FPS_MAX = 60;
 export const DISPLAY_NAME_MAX = 40;
