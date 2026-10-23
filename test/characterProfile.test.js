@@ -94,6 +94,11 @@ describe('chatPersona / buildSystemPrompt（キャラクターごとの人格。
     expect(buildSystemPrompt({ builtin: true, persona: '   ' })).toBe(SYSTEM_PROMPT);
   });
 
+  it('既定キャラクターは名前「メイト」と見た目（黄色い丸）で紹介する（v5.19）', () => {
+    expect(SYSTEM_PROMPT).toContain('黄色い丸い形のマスコット「メイト」です');
+    expect(buildSystemPrompt({ builtin: true, persona: '関西弁で話す' })).toContain('「メイト」');
+  });
+
   it('取り込んだキャラクターで設定が空なら、名前だけ差し替えて従来の話し方（黄色い丸とは言わない）', () => {
     const p = buildSystemPrompt({ builtin: false, displayName: '星空寝夢', persona: '' });
     expect(p).toContain('「星空寝夢」');

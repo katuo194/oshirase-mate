@@ -3,6 +3,7 @@ import path from 'node:path';
 import { getSettings, settingsEvents, updateSettings } from './store.js';
 import {
   DEFAULT_CHARACTER_ID,
+  DEFAULT_CHARACTER_NAME,
   SLOT_NAMES,
   characterFrameUrl,
   describeImportError,
@@ -14,9 +15,6 @@ import { validatePersona } from './characterProfile.js';
 import { externalUrlFor } from './externalLinks.js';
 import { voiceLabel } from './speakerNames.js';
 import { describeGenerateError } from './lineGenerator.js';
-
-/** 既定キャラクターの表示名（選択画面・編集画面） */
-const DEFAULT_CHARACTER_NAME = '黄色い丸（既定）';
 
 // 今後追加するIPCはここに集約する（マスコット用の mascot:* は Phase 0 から window.js にあり、当面そのまま）。
 

@@ -21,6 +21,8 @@ export const CANVAS_SIZE = 400;
 export const SOURCE_EMOTELAB = 'EmoteLab';
 /** 組み込みの既定キャラクター（黄色い丸）の ID。取り込んだキャラクターには使えない */
 export const DEFAULT_CHARACTER_ID = 'default';
+/** 組み込みの既定キャラクター（黄色い丸）の名前（v5.19。ユーザーが決めた）。変えられない。チャットとセリフの生成でもこの名前で紹介する */
+export const DEFAULT_CHARACTER_NAME = 'メイト';
 /**
  * 同梱キャラクター（F-23・Phase 15）の ID（一覧の並び順）。画像・セリフ・固定ボイスはアプリの中の assets/characters/<id>/ にある（bundledCharacters.js）。
  * 取り込んだキャラクターには使えない（bundled- で始まる ID はすべて予約）

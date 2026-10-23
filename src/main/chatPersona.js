@@ -5,6 +5,9 @@
 // Phase 8（v5.9・3.5）：キャラクターごとの人格。buildSystemPrompt が「キャラクター名＋キャラクター設定（persona）＋共通ルール」で組み立てる。
 // 口調・一人称はキャラクター設定に従い、共通ルール（短さ・記号なし・予定の中身は知らない・安全上の注意）はキャラクター設定より優先する。
 // 既定キャラクターで設定が空なら、従来の SYSTEM_PROMPT をそのまま使う。
+// v5.19：既定キャラクター（黄色い丸）に名前「メイト」が付いたので、紹介の文に名前を入れる。
+
+import { DEFAULT_CHARACTER_NAME } from './characterImport.js';
 
 /** 従来の口調（キャラクター設定が空のとき）。セリフの生成（lineGenerator.js）でも使う */
 export const DEFAULT_TONE = [
@@ -26,7 +29,7 @@ const CAUTIONS = [
 ];
 
 export const SYSTEM_PROMPT = [
-  'あなたはデスクトップに常駐している、黄色い丸い形のマスコットです。ユーザーと気軽におしゃべりします。',
+  `あなたはデスクトップに常駐している、黄色い丸い形のマスコット「${DEFAULT_CHARACTER_NAME}」です。ユーザーと気軽におしゃべりします。`,
   '',
   '# 話し方',
   ...DEFAULT_TONE,
@@ -48,7 +51,7 @@ export function buildSystemPrompt({ builtin = true, displayName = '', persona = 
   if (builtin && !hasPersona) return SYSTEM_PROMPT;
 
   const intro = builtin
-    ? 'あなたはデスクトップに常駐している、黄色い丸い形のマスコットです。ユーザーと気軽におしゃべりします。'
+    ? `あなたはデスクトップに常駐している、黄色い丸い形のマスコット「${DEFAULT_CHARACTER_NAME}」です。ユーザーと気軽におしゃべりします。`
     : `あなたはデスクトップに常駐しているマスコットキャラクター「${displayName}」です。ユーザーと気軽におしゃべりします。`;
   if (!hasPersona) {
     // 取り込んだキャラクターで設定が空：名前だけ差し替えて従来の話し方
