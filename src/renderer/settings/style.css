@@ -532,6 +532,11 @@ h2 {
   color: #b42318;
 }
 
+/* 下の「一覧に戻る」は左端（保存・取り込みのボタンは右端のまま） */
+.character-editor .actions .back-bottom {
+  margin-right: auto;
+}
+
 .character-editor .actions {
   margin: 16px 0 0;
   display: flex;

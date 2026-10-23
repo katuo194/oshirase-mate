@@ -65,7 +65,8 @@
     const generateStatusEl = $('generate-status');
     const resetEl = $('reset');
     const removeEl = $('remove');
-    const backEl = $('back');
+    /** 「一覧に戻る」は上と下の2つ（v5.19。上だけでは見つけにくいため） */
+    const backEls = [$('back'), $('back-bottom')];
 
     /** 'create' | 'edit' */
     let mode = 'create';
@@ -99,7 +100,7 @@
       resetEl.disabled = busy || generating || editing?.customized !== true;
       removeEl.disabled = busy || generating;
       // 保存・取り込み・セリフの生成の途中は一覧に戻れない（結果を取りこぼさないため）
-      backEl.disabled = busy || generating;
+      for (const el of backEls) el.disabled = busy || generating;
       if (!isFixedEdit()) {
         ok &&= nameEl.value.trim() !== '';
         ok &&= SLOTS.filter((s) => s.required).every((s) => rows[s.slot].state !== 'none');
@@ -532,9 +533,11 @@
       }
     });
 
-    backEl.addEventListener('click', () => {
-      if (!backEl.disabled) showList();
-    });
+    for (const el of backEls) {
+      el.addEventListener('click', () => {
+        if (!el.disabled) showList();
+      });
+    }
 
     // ---- 開始 ----
 
