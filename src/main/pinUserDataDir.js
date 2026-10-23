@@ -4,8 +4,11 @@
 // 起動時に --user-data-dir が明示されていれば、その場所を使い、固定しない（v5.15。開発中の共有版の動作確認用）。
 import { app } from 'electron';
 import path from 'node:path';
-import { BUILD_EDITION } from './buildInfo.js';
+import { BUILD_EDITION, ENV_HAS_CREDENTIALS } from './buildInfo.js';
+import { resolveEdition } from './edition.js';
 import { userDataDirToPin } from './userDataDir.js';
 
-const dirName = userDataDirToPin({ buildEdition: BUILD_EDITION, hasUserDataDirSwitch: app.commandLine.hasSwitch('user-data-dir') });
+// config.json はまだ読めないので、ビルド時の版（ソースからの起動では .env の有無）で決める（v5.19）
+const defaultEdition = resolveEdition({ buildDefault: BUILD_EDITION, envHasCredentials: ENV_HAS_CREDENTIALS });
+const dirName = userDataDirToPin({ defaultEdition, hasUserDataDirSwitch: app.commandLine.hasSwitch('user-data-dir') });
 if (dirName) app.setPath('userData', path.join(app.getPath('appData'), dirName));

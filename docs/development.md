@@ -24,15 +24,18 @@ npm run dev
 |---|---|---|
 | OAuth Client ID/Secret | `.env`（開発者のもの） | 利用者が自分で作成し、設定画面の「Google 連携の準備」で JSON を読み込む（または手入力。暗号化して保存） |
 | 配布 | 開発者本人のみ | GitHub Releases に zip ＋[セットアップ手順書（HTML）](setup-guide.html) |
+| ソースからの起動 | `.env` に Client ID と Secret が入っているとき | `.env` が無い・空のとき（GitHub から取得したソースをそのまま起動したとき） |
 | userData | `%APPDATA%\my-mascot-app` | `%APPDATA%\おしらせメイト` |
 
 利用者に見せる画面・文書（設定画面・README・手順書）では「共有版」という言葉を使いません。
 
-版は「`config.json` に保存された `edition`」→「ビルド時の既定値（配布パッケージの `package.json` の `mascotEdition`）」→「個人版」の順で決まります。
+版は「`config.json` に保存された `edition`」→「ビルド時の既定値（配布パッケージの `package.json` の `mascotEdition`）」→「プロジェクト直下の `.env` に Client ID と Secret が両方入っていれば個人版、無ければ共有版」の順で決まります（要件定義書 v5.19）。
+
+GitHub から取得したソースを `.env` なしで `npm start` すると共有版として起動し、配布版の zip と同じく設定画面の「Google 連携の準備」で自分のクライアントの JSON を読み込めば連携できます。保存先も配布版と同じ `%APPDATA%\おしらせメイト` なので、配布版を起動している間は起動できません（二重起動として、起動中の配布版の設定画面が開きます）。`.env` の無い作業用の複製（`.claude/worktrees/` など）から起動するときも同じです。配布版のデータと分けたいときは、下の「共有版の動作確認」のように `--user-data-dir` を付けて起動してください。
 
 ### 個人版の `.env`
 
-Google アカウント連携（個人版）には、プロジェクト直下の `.env` に OAuth クライアントの値が必要です（`.env.example` を参照。`.env` はリポジトリに含めません）。
+Google アカウント連携（個人版）には、プロジェクト直下の `.env` に OAuth クライアントの値が必要です（`.env.example` を参照。`.env` はリポジトリに含めません）。値が入っていて形式が誤っている `.env` は、共有版に切り替わらず個人版のまま起動し、設定画面にエラーを出します。
 
 ### 共有版の動作確認
 

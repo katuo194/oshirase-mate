@@ -8,14 +8,60 @@ body {
   margin: 0;
   background: #ffffff;
   color: #222222;
+  /* 上にタブ、その下に表示中のタブの中身（ウィンドウの残りの高さいっぱい） */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-/* 1 画面ですべて見えるよう 2 列に並べる（v5.15）。画面が低いときは列の中だけスクロールする */
+/* display を指定した要素（main.columns など）でも hidden で隠れるようにする */
+[hidden] {
+  display: none !important;
+}
+
+/* ---- タブ（設定／キャラクター。v5.19）---- */
+.tabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid #dddddd;
+  background: #f6f8fa;
+}
+
+.tabs button {
+  font: inherit;
+  padding: 6px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #555555;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.tabs button:hover {
+  color: #222222;
+}
+
+.tabs button[aria-selected='true'] {
+  background: #ffffff;
+  border-color: #dddddd;
+  color: #222222;
+  font-weight: bold;
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 横に広いときは 2 列に並べる（v5.15）。画面が低いときは列の中だけスクロールする */
 main.columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 28px;
-  height: 100vh;
   box-sizing: border-box;
   padding: 0 20px;
 }
@@ -24,6 +70,24 @@ main.columns {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 8px;
+}
+
+/* 狭いときは 1 列に並べ、全体をスクロールする（v5.19。ウィンドウの大きさは変えられる） */
+@media (max-width: 760px) {
+  main.columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    overflow-y: auto;
+  }
+
+  .col {
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .col:last-child {
+    padding-bottom: 12px;
+  }
 }
 
 h2 {
@@ -245,4 +309,117 @@ h2 {
   cursor: pointer;
   font-size: 12px;
   color: #555555;
+}
+
+/* ---- キャラクター（F-17・3.6。v5.19 で別のウィンドウからタブへ移した）---- */
+.character-panel {
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px 20px 16px;
+}
+
+.character-panel > .hint {
+  margin: 0 0 10px;
+}
+
+/* 幅に合わせてカードを並べる（狭いときは 1 列） */
+.character-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.character-list .item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.character-list .item:hover {
+  background: #f6f8fb;
+}
+
+.character-list .item.selected {
+  background: #eaf2ff;
+  border-color: #9cc3ff;
+}
+
+.character-list .item input {
+  margin: 0;
+}
+
+.character-list .thumb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 6px;
+  /* 透過PNGが見やすいよう市松模様の背景 */
+  background: repeating-conic-gradient(#f0f0f0 0 25%, #ffffff 0 50%) 0 0 / 12px 12px;
+  object-fit: contain;
+}
+
+.character-list .thumb.builtin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffbe6;
+}
+
+.character-list .thumb.builtin::before {
+  content: '';
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ffd83b;
+  border: 2px solid #c99a00;
+}
+
+.character-list .meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.character-list .name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-list .sub {
+  color: #777777;
+  font-size: 12px;
+}
+
+.character-list .edit {
+  flex: none;
+  font: inherit;
+  padding: 3px 10px;
+}
+
+.character-actions {
+  margin: 16px 0 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.character-actions button {
+  font: inherit;
+  padding: 6px 14px;
+}
+
+.credit {
+  margin: 20px 0 0;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.5;
 }

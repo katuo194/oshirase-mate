@@ -35,6 +35,7 @@ import {
 } from './ipc.js';
 import { DEFAULT_CHARACTER_ID, PROTOCOL_SCHEME, createCharacterRepository, isBundledCharacterId, resolveCharacterUrl } from './characterImport.js';
 import { createBundledCharacters } from './bundledCharacters.js';
+import { resolveFolderDialogStart } from './folderDialogStart.js';
 import { createSpeakerNames } from './speakerNames.js';
 import { DEFAULT_VIEW, buildCharacterView } from './characterMotions.js';
 import { resolveVoiceConfig } from './characterProfile.js';
@@ -114,6 +115,8 @@ let characters = null;
 let bundledCharacters = null;
 /** 選択中の同梱キャラクターの固定ボイス（fixedVoice.js）。同梱キャラクターでない・録音が無ければ null。applyCharacter が更新する */
 let activeFixedVoice = null;
+/** キャラクター作成・編集画面で前に選んだフォルダ（次のフォルダ選択をその親から開く。folderDialogStart.js） */
+let lastPickedFolder = null;
 /** 設定画面のボイス欄（クレジット表記）を出し直す（registerVoiceIpc の戻り値） */
 let voiceIpc = null;
 /**
@@ -356,9 +359,17 @@ if (!app.requestSingleInstanceLock()) {
       onCharacterUpdated: (id) => {
         if (id === activeCharacter.id) void applyCharacter(log);
       },
+      // 最初に開く場所は「前に選んだフォルダの親 → ドキュメント\EmoteLab\Export → OS の既定」（folderDialogStart.js）
       pickFolder: async (win) => {
-        const r = await dialog.showOpenDialog(win, { title: 'EmoteLab の ImageSequence フォルダを選択', properties: ['openDirectory'] });
-        return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+        const defaultPath = await resolveFolderDialogStart({ lastPicked: lastPickedFolder, documentsDir: app.getPath('documents'), fs: fsp });
+        const r = await dialog.showOpenDialog(win, {
+          title: 'EmoteLab の ImageSequence フォルダを選択',
+          properties: ['openDirectory'],
+          ...(defaultPath ? { defaultPath } : {}),
+        });
+        if (r.canceled || r.filePaths.length === 0) return null;
+        lastPickedFolder = r.filePaths[0];
+        return lastPickedFolder;
       },
       confirmRemove: async (win, displayName) => {
         const r = await dialog.showMessageBox(win, {

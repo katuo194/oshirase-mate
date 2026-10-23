@@ -6,7 +6,7 @@ import { normalizeVoicevoxConfig } from './voicevox.js';
 import { normalizeIdleTalkConfig } from './idleTalk.js';
 import { normalizeChatConfig } from './gemini.js';
 import { resolveEdition } from './edition.js';
-import { BUILD_EDITION } from './buildInfo.js';
+import { BUILD_EDITION, ENV_HAS_CREDENTIALS } from './buildInfo.js';
 
 // config.json（6.1）。Phase 1 で扱うのは character / muted / volume / launchAtLogin と、Phase 0 の characterAnchor のみ。
 // defaults は空のまま。既定値の補完は normalizeSettings が読み出し時に行う（保存値は変更されたキーだけが書かれる）。
@@ -29,6 +29,15 @@ export function loadCharacterAnchor() {
 
 export function saveCharacterAnchor(anchor) {
   store.set('characterAnchor', { x: Math.round(anchor.x), y: Math.round(anchor.y) });
+}
+
+/** 設定ウィンドウの内容の大きさ（v5.19）。検証は settingsWindowSize.js の resolveSettingsWindowSize */
+export function loadSettingsWindowSize() {
+  return store.get('settingsWindowSize') ?? null;
+}
+
+export function saveSettingsWindowSize(size) {
+  store.set('settingsWindowSize', { width: Math.round(size.width), height: Math.round(size.height) });
 }
 
 /** 正規化済みの設定（Phase 1 対象キーのみ）を返す。 */
@@ -66,12 +75,12 @@ export function getChatConfig() {
 }
 
 /**
- * 個人版／共有版（2.5・6.1）。config.json に実際に保存された edition → ビルド時の既定値 → 'personal'（edition.js）。
+ * 個人版／共有版（2.5・6.1）。config.json に実際に保存された edition → ビルド時の既定値 → .env に資格情報があれば 'personal'、無ければ 'shared'（edition.js）。
  * store の defaults は空なので、store.get('edition') が値を返すのは config.json に本当に書かれているときだけ。
  * edition はアプリから書き込まない（ここにも settingsSchema.js にも既定値を足さないこと）。
  */
 export function getEdition() {
-  return resolveEdition({ stored: store.get('edition'), buildDefault: BUILD_EDITION });
+  return resolveEdition({ stored: store.get('edition'), buildDefault: BUILD_EDITION, envHasCredentials: ENV_HAS_CREDENTIALS });
 }
 
 /**

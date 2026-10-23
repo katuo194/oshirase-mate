@@ -2,13 +2,20 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:" />
+  <!-- img-src の mascot-character:：キャラクタータブのサムネイル（取り込んだキャラクターの rest の1枚目） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: mascot-character:" />
   <title>設定</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- 1 画面ですべて見えるよう、横長のウィンドウに 2 列で並べる（v5.15）。左：Google との連携、右：それ以外 -->
-  <main class="columns">
+  <!-- 設定とキャラクター選択をタブで切り替える（v5.19）。トレイの「設定」「キャラクター変更」はそれぞれのタブで開く -->
+  <nav class="tabs" role="tablist" aria-label="画面の切り替え">
+    <button id="tab-settings" type="button" role="tab" aria-controls="panel-settings" data-tab="settings" aria-selected="true">設定</button>
+    <button id="tab-character" type="button" role="tab" aria-controls="panel-character" data-tab="character" aria-selected="false" tabindex="-1">キャラクター</button>
+  </nav>
+
+  <!-- 横に広いときは 2 列（左：Google との連携、右：それ以外。v5.15）、狭いときは 1 列に並べる（v5.19） -->
+  <main id="panel-settings" class="panel columns" role="tabpanel" aria-labelledby="tab-settings">
     <div class="col">
       <!-- Google 連携の準備（利用者が自分の OAuth クライアントを作って読み込む版だけで表示。2.4・3.6・F-18。Phase 12 でウィザードにした）。
            各手順のボタンはリンクの名前だけをメインへ送り、開くページはメインが決める。Secret も Client ID もこの画面には渡らない -->
@@ -187,6 +194,22 @@
       </section>
     </div>
   </main>
+
+  <!-- キャラクター選択（F-17・3.6）。v5.19 で別のウィンドウからこのタブへ移した -->
+  <main id="panel-character" class="panel character-panel" role="tabpanel" aria-labelledby="tab-character" hidden>
+    <p class="hint">選ぶとすぐにマスコットに反映されます。</p>
+
+    <ul id="character-list" class="character-list" aria-label="キャラクター一覧"></ul>
+    <p id="character-error" class="hint error" hidden></p>
+
+    <div class="character-actions">
+      <button id="character-create" type="button">キャラクターを作成…</button>
+    </div>
+
+    <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。</p>
+  </main>
   <script src="app.js"></script>
+  <script src="character.js"></script>
+  <script src="tabs.js"></script>
 </body>
 </html>

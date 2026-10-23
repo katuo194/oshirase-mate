@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // electron-store をメモリ上の偽物に差し替える（config.json の中身＝ data。set の呼び出しを記録する）
-const fake = vi.hoisted(() => ({ data: {}, setCalls: [], buildEdition: null }));
+const fake = vi.hoisted(() => ({ data: {}, setCalls: [], buildEdition: null, envHasCredentials: true }));
 vi.mock('electron-store', () => ({
   default: class FakeStore {
     get(key) {
@@ -21,6 +21,9 @@ vi.mock('electron-store', () => ({
 vi.mock('../src/main/buildInfo.js', () => ({
   get BUILD_EDITION() {
     return fake.buildEdition;
+  },
+  get ENV_HAS_CREDENTIALS() {
+    return fake.envHasCredentials;
   },
 }));
 
@@ -45,6 +48,7 @@ beforeEach(() => {
   fake.data = initialConfig();
   fake.setCalls = [];
   fake.buildEdition = null;
+  fake.envHasCredentials = true;
   settingsEvents.removeAllListeners();
 });
 
@@ -94,9 +98,21 @@ describe('store.setCharacter（6.1 character だけを書く）', () => {
   });
 });
 
-describe('store.getEdition（6.1：保存された edition → ビルド時の既定値 → personal。v5.11）', () => {
-  it('開発時（edition 未保存・ビルド時の既定値なし）は personal', () => {
+describe('store.getEdition（6.1：保存された edition → ビルド時の既定値 → .env の有無。v5.11・v5.19）', () => {
+  it('開発時（edition 未保存・ビルド時の既定値なし）で .env に資格情報があれば personal', () => {
     expect(fake.data).not.toHaveProperty('edition');
+    expect(getEdition()).toBe('personal');
+  });
+
+  it('ソースから .env なしで起動したら shared（GitHub から取得したソース。v5.19）', () => {
+    fake.envHasCredentials = false;
+    expect(getEdition()).toBe('shared');
+    expect(fake.data).not.toHaveProperty('edition');
+    // 保存された値・ビルド時の既定値が優先
+    fake.data.edition = 'personal';
+    expect(getEdition()).toBe('personal');
+    delete fake.data.edition;
+    fake.buildEdition = 'personal';
     expect(getEdition()).toBe('personal');
   });
 

@@ -2,7 +2,8 @@ import { BrowserWindow, ipcMain, screen } from 'electron';
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadCharacterAnchor, saveCharacterAnchor } from './store.js';
+import { loadCharacterAnchor, loadSettingsWindowSize, saveCharacterAnchor, saveSettingsWindowSize } from './store.js';
+import { SETTINGS_MIN_SIZE, isSettingsTab, resolveSettingsWindowSize } from './settingsWindowSize.js';
 import { CHARACTER_SIZE, COLLAPSED_LAYOUT, boundsFromAnchor, computeLayout, layoutsEqual } from './windowLayout.js';
 import { DEFAULT_VIEW } from './characterMotions.js';
 import { classifyManualLink } from './manualLinks.js';
@@ -380,28 +381,41 @@ export function getSettingsWindow() {
   return settingsWindow;
 }
 
-/** 設定ウィンドウの内容の大きさ（DIP） */
-const SETTINGS_SIZE = { width: 1000, height: 660 };
-
-/** 設定ウィンドウを開く。既に開いていれば前面に出すだけ（シングルトン）。 */
-export function openSettingsWindow() {
+/**
+ * 設定ウィンドウを開く。既に開いていれば前面に出すだけ（シングルトン）。
+ * 設定とキャラクター選択（3.6）は同じウィンドウのタブ（v5.19）。tab を渡すとそのタブを表示し、省略すると
+ * 開いていれば今のタブのまま、新しく開くときは設定のタブにする。
+ * @param {{ tab?: 'settings' | 'character' }} [opts]
+ */
+export function openSettingsWindow({ tab } = {}) {
+  const showTab = isSettingsTab(tab) ? tab : null;
   if (settingsWindow) {
+    if (showTab) {
+      const wc = settingsWindow.webContents;
+      // 読み込み中に送ると画面のスクリプトが受け取れないので、読み込みが終わってから送る
+      if (wc.isLoading()) wc.once('did-finish-load', () => wc.send('settings:show-tab', showTab));
+      else wc.send('settings:show-tab', showTab);
+    }
     if (settingsWindow.isMinimized()) settingsWindow.restore();
     settingsWindow.show();
     settingsWindow.focus();
     return settingsWindow;
   }
 
-  // 1 画面ですべて見えるよう横長にして 2 列で並べる（v5.15）。作業領域より高くはしない（低い画面では列の中だけスクロールする）
+  // 大きさは変えられる（v5.19）。前に閉じたときの大きさで開く（無ければ 1000×660。作業領域より大きくはしない）。
+  // 狭くすると画面側で 1 列に並べ替え、低い画面では列の中（1 列のときは全体）だけスクロールする
   const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const size = resolveSettingsWindowSize(loadSettingsWindowSize(), workArea);
   const win = new BrowserWindow({
-    width: Math.min(SETTINGS_SIZE.width, workArea.width),
-    height: Math.min(SETTINGS_SIZE.height, workArea.height - 40),
+    width: size.width,
+    height: size.height,
+    minWidth: Math.min(SETTINGS_MIN_SIZE.width, workArea.width),
+    minHeight: Math.min(SETTINGS_MIN_SIZE.height, workArea.height - 40),
     useContentSize: true,
     show: false,
-    title: '設定',
-    resizable: false,
-    maximizable: false,
+    title: showTab === 'character' ? 'キャラクター選択' : '設定',
+    resizable: true,
+    maximizable: true,
     fullscreenable: false,
     autoHideMenuBar: true,
     backgroundColor: '#ffffff',
@@ -420,11 +434,17 @@ export function openSettingsWindow() {
   win.webContents.on('will-navigate', (e) => e.preventDefault());
 
   win.once('ready-to-show', () => win.show());
+  // 閉じたときの大きさを覚える（最大化・最小化中は元の大きさが取れないので、前に覚えた大きさのまま）
+  win.on('close', () => {
+    if (win.isMaximized() || win.isMinimized()) return;
+    const [width, height] = win.getContentSize();
+    saveSettingsWindowSize({ width, height });
+  });
   win.on('closed', () => {
     settingsWindow = null;
   });
 
-  win.loadFile(path.join(dirname, '../renderer/settings/index.html'));
+  win.loadFile(path.join(dirname, '../renderer/settings/index.html'), { query: { tab: showTab ?? 'settings' } });
 
   settingsWindow = win;
   return win;
@@ -627,12 +647,14 @@ function openToolWindow(slot, { width, height, title, preload, page, parent = nu
   return win;
 }
 
-const characterWindow = { current: null };
 const characterCreateWindow = { current: null };
 
-/** キャラクター選択ウィンドウ。IPC の送信元検証用。未オープンなら null。 */
+/**
+ * キャラクター選択画面のウィンドウ。IPC の送信元検証用。未オープンなら null。
+ * 選択画面は設定ウィンドウのタブなので、設定ウィンドウを返す（v5.19）。
+ */
 export function getCharacterWindow() {
-  return characterWindow.current;
+  return settingsWindow;
 }
 
 /** キャラクター作成ウィンドウ。IPC の送信元検証用。未オープンなら null。 */
@@ -640,19 +662,13 @@ export function getCharacterCreateWindow() {
   return characterCreateWindow.current;
 }
 
-/** キャラクター選択画面（3.6）を開く。 */
+/** キャラクター選択画面（3.6）を開く。設定ウィンドウを「キャラクター」のタブで開く（v5.19）。 */
 export function openCharacterWindow() {
-  return openToolWindow(characterWindow, {
-    width: 460,
-    height: 600,
-    title: 'キャラクター選択',
-    preload: 'character.cjs',
-    page: 'character',
-  });
+  return openSettingsWindow({ tab: 'character' });
 }
 
 /**
- * キャラクター作成／編集画面（3.6）を開く。選択画面から開いたときはその子ウィンドウにする（前後関係を保つ）。
+ * キャラクター作成／編集画面（3.6）を開く。選択画面（設定ウィンドウ）から開いたときはその子ウィンドウにする（前後関係を保つ）。
  * 既に開いていて対象（作成／どのキャラクターの編集か）が変わる場合は、入力中の内容を捨てて開き直す。
  * @param {{ editId?: string | null }} [opts] 編集するキャラクターの ID（'default' は既定キャラクター）。無ければ新規作成
  */
@@ -663,7 +679,7 @@ export function openCharacterCreateWindow({ editId = null } = {}) {
     title: editId ? 'キャラクター編集' : 'キャラクター作成',
     preload: 'characterCreate.cjs',
     page: 'characterCreate',
-    parent: characterWindow.current,
+    parent: settingsWindow,
     query: editId ? { edit: editId } : {},
   });
 }

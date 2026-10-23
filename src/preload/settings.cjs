@@ -84,3 +84,26 @@ contextBridge.exposeInMainWorld('oauthApi', {
 contextBridge.exposeInMainWorld('linksApi', {
   open: (name) => ipcRenderer.invoke('links:open', String(name)),
 });
+
+// キャラクター選択（F-17・3.6）。設定ウィンドウの「キャラクター」タブ（v5.19。以前は別のウィンドウ）。一覧（ID・表示名・サムネイルURL）と選択だけを扱う
+contextBridge.exposeInMainWorld('characterApi', {
+  list: () => ipcRenderer.invoke('character:list'),
+  select: (id) => ipcRenderer.invoke('character:select', String(id)),
+  openCreate: () => ipcRenderer.invoke('character:open-create'),
+  openEdit: (id) => ipcRenderer.invoke('character:open-edit', String(id)), // 取り込んだキャラクターは全項目、既定キャラクターは声と設定のみ
+  // 取り込み・削除・選択の変更（他の画面・トレイから）を受け取る。戻り値は購読解除関数
+  onChanged: (callback) => {
+    const listener = (_event, view) => callback(view);
+    ipcRenderer.on('character:changed', listener);
+    return () => ipcRenderer.removeListener('character:changed', listener);
+  },
+});
+
+// タブの切り替え（v5.19）。トレイの「設定」「キャラクター変更」で、開いているウィンドウのタブを切り替える
+contextBridge.exposeInMainWorld('tabsApi', {
+  onShowTab: (callback) => {
+    const listener = (_event, tab) => callback(String(tab));
+    ipcRenderer.on('settings:show-tab', listener);
+    return () => ipcRenderer.removeListener('settings:show-tab', listener);
+  },
+});
