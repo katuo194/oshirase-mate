@@ -54,9 +54,9 @@ describe('lineGenerator / プロンプト（buildLinesPrompt）', () => {
     expect(userText).toContain('JSON');
   });
 
-  it('キャラクター設定が空なら標準の口調。黄色い丸は名前ではなく見た目で紹介する', () => {
+  it('キャラクター設定が空なら標準の口調。黄色い丸は見た目と決まった名前「メイト」で紹介する（画面から来た名前は使わない。v5.19）', () => {
     const builtin = buildLinesPrompt({ builtin: true, displayName: '無視される名前', persona: '' }).systemPrompt;
-    expect(builtin).toContain('黄色い丸い形のマスコット');
+    expect(builtin).toContain('黄色い丸い形のマスコット「メイト」');
     expect(builtin).not.toContain('無視される名前');
     expect(builtin).not.toContain('<character>');
     expect(builtin).toContain('友だちのような口調');

@@ -17,6 +17,7 @@ import {
   emptyLines,
   placeholdersIn,
 } from './characterLines.js';
+import { DEFAULT_CHARACTER_NAME } from './characterImport.js';
 import { DEFAULT_TONE } from './chatPersona.js';
 
 /** 種類ごとに作る文の数（標準の文と同じ数。上限いっぱいにすると出力が長くなり失敗しやすい） */
@@ -58,7 +59,7 @@ const PLACEHOLDER_NAMES = Object.freeze({ calendar: '{title}・{time}', calendar
 export function buildLinesPrompt({ builtin = false, displayName = '', persona = '' } = {}) {
   const name = typeof displayName === 'string' ? displayName.trim() : '';
   const intro = builtin
-    ? 'デスクトップに常駐している、黄色い丸い形のマスコット'
+    ? `デスクトップに常駐している、黄色い丸い形のマスコット「${DEFAULT_CHARACTER_NAME}」`
     : `デスクトップに常駐しているマスコットキャラクター${name ? `「${name}」` : ''}`;
   const hasPersona = typeof persona === 'string' && persona.trim() !== '';
   const character = hasPersona

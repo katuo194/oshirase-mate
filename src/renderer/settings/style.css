@@ -8,14 +8,60 @@ body {
   margin: 0;
   background: #ffffff;
   color: #222222;
+  /* 上にタブ、その下に表示中のタブの中身（ウィンドウの残りの高さいっぱい） */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-/* 1 画面ですべて見えるよう 2 列に並べる（v5.15）。画面が低いときは列の中だけスクロールする */
+/* display を指定した要素（main.columns など）でも hidden で隠れるようにする */
+[hidden] {
+  display: none !important;
+}
+
+/* ---- タブ（設定／キャラクター。v5.19）---- */
+.tabs {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px 0;
+  border-bottom: 1px solid #dddddd;
+  background: #f6f8fa;
+}
+
+.tabs button {
+  font: inherit;
+  padding: 6px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #555555;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.tabs button:hover {
+  color: #222222;
+}
+
+.tabs button[aria-selected='true'] {
+  background: #ffffff;
+  border-color: #dddddd;
+  color: #222222;
+  font-weight: bold;
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 横に広いときは 2 列に並べる（v5.15）。画面が低いときは列の中だけスクロールする */
 main.columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 28px;
-  height: 100vh;
   box-sizing: border-box;
   padding: 0 20px;
 }
@@ -24,6 +70,24 @@ main.columns {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 8px;
+}
+
+/* 狭いときは 1 列に並べ、全体をスクロールする（v5.19。ウィンドウの大きさは変えられる） */
+@media (max-width: 760px) {
+  main.columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    overflow-y: auto;
+  }
+
+  .col {
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .col:last-child {
+    padding-bottom: 12px;
+  }
 }
 
 h2 {
@@ -245,4 +309,357 @@ h2 {
   cursor: pointer;
   font-size: 12px;
   color: #555555;
+}
+
+/* ---- キャラクター（F-17・3.6。v5.19 で別のウィンドウからタブへ移した）---- */
+.character-panel {
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px 20px 16px;
+}
+
+.character-panel > .hint {
+  margin: 0 0 10px;
+}
+
+/* 幅に合わせてカードを並べる（狭いときは 1 列） */
+.character-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.character-list .item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.character-list .item:hover {
+  background: #f6f8fb;
+}
+
+.character-list .item.selected {
+  background: #eaf2ff;
+  border-color: #9cc3ff;
+}
+
+.character-list .item input {
+  margin: 0;
+}
+
+.character-list .thumb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 6px;
+  /* 透過PNGが見やすいよう市松模様の背景 */
+  background: repeating-conic-gradient(#f0f0f0 0 25%, #ffffff 0 50%) 0 0 / 12px 12px;
+  object-fit: contain;
+}
+
+.character-list .thumb.builtin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffbe6;
+}
+
+.character-list .thumb.builtin::before {
+  content: '';
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ffd83b;
+  border: 2px solid #c99a00;
+}
+
+.character-list .meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.character-list .name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-list .sub {
+  color: #777777;
+  font-size: 12px;
+}
+
+.character-list .edit {
+  flex: none;
+  font: inherit;
+  padding: 3px 10px;
+}
+
+.character-actions {
+  margin: 16px 0 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.character-actions button {
+  font: inherit;
+  padding: 6px 14px;
+}
+
+.credit {
+  margin: 20px 0 0;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ---- キャラクター作成・編集（F-17・3.6。v5.19 で別のウィンドウからキャラクタータブへ移した）---- */
+.character-editor {
+  max-width: 760px;
+}
+
+.character-editor .editor-head {
+  margin: 0 0 8px;
+}
+
+.character-editor h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.character-editor h2 {
+  margin: 20px 0 8px;
+}
+
+.character-editor .hint {
+  margin: 4px 0 8px;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.character-editor .hint.error {
+  color: #c0392b;
+}
+
+.character-editor input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 5px 8px;
+}
+
+.character-editor .slots {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.character-editor .slots th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+  color: #777777;
+  padding: 0 4px 4px;
+}
+
+.character-editor .slots td {
+  padding: 6px 4px;
+  border-top: 1px solid #eeeeee;
+  vertical-align: middle;
+}
+
+.character-editor .slot-label {
+  white-space: nowrap;
+}
+
+.character-editor .required {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #e5484d;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.character-editor .folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.character-editor .folder-status {
+  font-size: 12px;
+  color: #666666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.character-editor .folder-status.ok {
+  color: #1e7e34;
+}
+
+.character-editor .folder-status.error {
+  color: #c0392b;
+  white-space: normal;
+}
+
+.character-editor input[type='number'] {
+  width: 56px;
+  font: inherit;
+  padding: 3px 4px;
+}
+
+.character-editor button {
+  font: inherit;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.character-editor button.danger {
+  color: #b42318;
+}
+
+/* 下の「一覧に戻る」は左端（保存・取り込みのボタンは右端のまま） */
+.character-editor .actions .back-bottom {
+  margin-right: auto;
+}
+
+.character-editor .actions {
+  margin: 16px 0 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.character-editor .status {
+  font-size: 12px;
+  color: #666666;
+}
+
+.character-editor .status.ok {
+  color: #1e7e34;
+}
+
+.character-editor .status.error {
+  color: #c0392b;
+}
+
+.character-editor .voice-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.character-editor .voice-row select {
+  grid-column: 2 / 4;
+  font: inherit;
+  padding: 3px 4px;
+}
+
+.character-editor .voice-row output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.character-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.character-editor textarea::placeholder {
+  color: #aaaaaa;
+}
+
+.character-editor .persona-foot,
+.character-editor .line-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.character-editor .count {
+  flex: none;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777777;
+  font-variant-numeric: tabular-nums;
+}
+
+.character-editor .count.error {
+  color: #c0392b;
+}
+
+/* セリフ（F-22）：初めは閉じた <details> */
+.character-editor .lines {
+  margin: 20px 0 0;
+}
+
+.character-editor .lines summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: #555555;
+  border-bottom: 1px solid #dddddd;
+  padding-bottom: 4px;
+}
+
+.character-editor .lines h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: #555555;
+}
+
+.character-editor .line-field {
+  margin: 10px 0;
+}
+
+.character-editor .line-field label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.character-editor .line-field textarea.error {
+  outline: 2px solid #c0392b;
+}
+
+.character-editor .line-foot .hint {
+  margin: 2px 0 0;
+}
+
+/* Gemini でセリフを作る（Phase 14） */
+.character-editor .generate {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  background: #f6f6f6;
+  border-radius: 4px;
+}
+
+.character-editor .generate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.character-editor .generate .hint {
+  margin: 6px 0 0;
 }
