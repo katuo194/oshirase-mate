@@ -12,7 +12,9 @@
       tab.tabIndex = selected ? 0 : -1;
       document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
     }
-    document.title = TITLES[name];
+    // キャラクタータブは一覧と作成・編集画面でタイトルが変わる（characterEditor.js が panel の data-title に入れる）
+    const panel = document.getElementById(`panel-${name}`);
+    document.title = panel.dataset.title || TITLES[name];
   }
 
   for (const tab of tabs) {

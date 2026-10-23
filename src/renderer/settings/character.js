@@ -61,7 +61,7 @@
         edit.title = c.builtin || c.bundled ? '声・キャラクター設定・セリフを編集' : '名前・モーション・声・キャラクター設定・セリフを編集';
         edit.addEventListener('click', (e) => {
           e.stopPropagation(); // 行のクリック（選択）にしない
-          void window.characterApi.openEdit(c.id);
+          window.characterEditor.open(c.id); // タブの中身を編集画面に切り替える（v5.19。以前は別のウィンドウ）
         });
 
         li.append(radio, thumb, meta, edit);
@@ -81,7 +81,7 @@
     }
   }
 
-  document.getElementById('character-create').addEventListener('click', () => void window.characterApi.openCreate());
+  document.getElementById('character-create').addEventListener('click', () => window.characterEditor.open());
   window.characterApi.onChanged(render);
   void window.characterApi.list().then(render);
 })();

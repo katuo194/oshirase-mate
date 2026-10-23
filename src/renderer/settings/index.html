@@ -197,18 +197,124 @@
 
   <!-- キャラクター選択（F-17・3.6）。v5.19 で別のウィンドウからこのタブへ移した -->
   <main id="panel-character" class="panel character-panel" role="tabpanel" aria-labelledby="tab-character" hidden>
-    <p class="hint">選ぶとすぐにマスコットに反映されます。</p>
+    <!-- 一覧（選ぶと即反映）。「編集」「キャラクターを作成…」でタブの中身が下の作成・編集画面に切り替わる（v5.19） -->
+    <div id="character-list-view">
+      <p class="hint">選ぶとすぐにマスコットに反映されます。</p>
 
-    <ul id="character-list" class="character-list" aria-label="キャラクター一覧"></ul>
-    <p id="character-error" class="hint error" hidden></p>
+      <ul id="character-list" class="character-list" aria-label="キャラクター一覧"></ul>
+      <p id="character-error" class="hint error" hidden></p>
 
-    <div class="character-actions">
-      <button id="character-create" type="button">キャラクターを作成…</button>
+      <div class="character-actions">
+        <button id="character-create" type="button">キャラクターを作成…</button>
+      </div>
+
+      <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。</p>
     </div>
 
-    <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。</p>
+    <!-- 作成・編集画面（F-17・3.6）。開くたびに下の template から作り直す（characterEditor.js） -->
+    <div id="character-editor-view" class="character-editor" hidden></div>
   </main>
+
+  <!-- キャラクター作成・編集画面の中身（v5.19 で別のウィンドウからキャラクタータブへ移した）。id は設定画面とぶつからないよう editor- を付ける -->
+  <template id="character-editor-template">
+    <div class="editor-head">
+      <button id="editor-back" type="button">← 一覧に戻る</button>
+    </div>
+    <h1 id="editor-heading">キャラクター作成</h1>
+    <p id="editor-intro" class="hint">
+      EmoteLab の ImageSequence（400×400px・透過PNG、000.png から始まる3桁連番）で書き出したフォルダを、モーションごとに選んでください。
+      カレンダー・TODO・重要メールは任意で、未設定の場合は「通知」のモーションを使います。
+    </p>
+    <p id="editor-missing" class="hint error" hidden>このキャラクターは見つかりませんでした（削除された可能性があります）。</p>
+
+    <div id="editor-form">
+      <section id="editor-name-section">
+        <h2>キャラクター名</h2>
+        <input id="editor-name" type="text" maxlength="40" placeholder="マスコットの名前" autocomplete="off" />
+      </section>
+
+      <section id="editor-slots-section">
+        <h2>モーション</h2>
+        <table class="slots">
+          <thead>
+            <tr><th>モーション</th><th>フォルダ</th><th>fps</th><th></th></tr>
+          </thead>
+          <tbody id="editor-slots"></tbody>
+        </table>
+      </section>
+
+      <!-- 声（F-13・v5.9。v5.11 で両版に表示）。通知・アイドルトーク・チャットのすべての読み上げに使う -->
+      <section>
+        <h2>声（VOICEVOX）</h2>
+        <div class="voice-row">
+          <label for="editor-speaker">話者</label>
+          <select id="editor-speaker"></select>
+        </div>
+        <div class="voice-row">
+          <label for="editor-speed">話速</label>
+          <input id="editor-speed" type="range" min="0.5" max="2" step="0.05" value="1" />
+          <output id="editor-speed-value" for="editor-speed">1.00</output>
+        </div>
+        <div class="voice-row">
+          <label for="editor-pitch">音高</label>
+          <input id="editor-pitch" type="range" min="-0.15" max="0.15" step="0.01" value="0" />
+          <output id="editor-pitch-value" for="editor-pitch">0.00</output>
+        </div>
+        <p id="editor-voice-status" class="hint"></p>
+        <p class="hint">通知・アイドルトーク・チャットの読み上げに、このキャラクターを選んでいる間この声を使います。</p>
+      </section>
+
+      <!-- キャラクター設定（チャットの人格。3.5・v5.9）。v5.19：placeholder は例文ではなく書く内容の説明 -->
+      <section>
+        <h2>キャラクター設定（チャット）</h2>
+        <textarea id="editor-persona" rows="6" maxlength="1000" placeholder="性格・口調・一人称・語尾・好きなもの・話し方のくせなどを書きます。チャットでこのキャラクターとして話すときに使います。"></textarea>
+        <div class="persona-foot">
+          <span class="hint">性格・口調・一人称などを書くと、チャットでこのキャラクターとして話します。空欄なら標準の話し方です。チャットのたびに Gemini へ送られます。</span>
+          <span id="editor-persona-count" class="count">0/1000</span>
+        </div>
+      </section>
+
+      <!-- セリフ（F-22・Phase 13）。通知の読み上げ文・アイドルトークの文・チャットの終了メッセージ（Phase 14）。
+           欄は characterEditor.js が案内（characterCreate:begin の linesGuide）から作る -->
+      <details id="editor-lines-section" class="lines">
+        <summary>セリフ（読み上げ・アイドルトーク・チャット）</summary>
+        <p class="hint">
+          1行に1文ずつ書きます。複数書くと、その中から順番を変えて選びます。空欄の種類は薄く表示している標準の文を使います。
+          通知のセリフは読み上げだけに使い、吹き出しの表示は変わりません。
+        </p>
+        <!-- Gemini でセリフの案を作る（Phase 14）。案は欄に入るだけで、保存するまで反映されない -->
+        <div class="generate">
+          <div class="generate-row">
+            <button id="editor-generate" type="button" disabled>Gemini でセリフを作る</button>
+            <span id="editor-generate-status" class="status" role="status"></span>
+          </div>
+          <p class="hint">
+            キャラクター名とキャラクター設定を Gemini に送り、すべての欄のセリフの案を作ります（30 秒ほどかかることがあります）。
+            案は保存するまで反映されません。気に入らない文は直したり消したりしてから保存してください。
+          </p>
+        </div>
+        <h3>通知の読み上げ</h3>
+        <div id="editor-lines-notify"></div>
+        <h3>アイドルトーク</h3>
+        <div id="editor-lines-idle"></div>
+        <h3>チャット</h3>
+        <div id="editor-lines-chat"></div>
+      </details>
+
+      <div class="actions">
+        <span id="editor-submit-status" class="status" role="status"></span>
+        <!-- 取り込んだキャラクターの編集だけで出す（v5.19。以前は作成画面の「取り込み済みのキャラクター」一覧にあった） -->
+        <button id="editor-remove" type="button" class="danger" hidden>削除</button>
+        <!-- 同梱キャラクター（F-23）の編集だけで出す。編集して保存した声・キャラクター設定・セリフを消す -->
+        <button id="editor-reset" type="button" hidden disabled>同梱の状態に戻す</button>
+        <button id="editor-submit" type="button" disabled>取り込む</button>
+      </div>
+    </div>
+
+    <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。EmoteLab 本体は本アプリに含まれません。</p>
+  </template>
   <script src="app.js"></script>
+  <script src="characterEditor.js"></script>
   <script src="character.js"></script>
   <script src="tabs.js"></script>
 </body>

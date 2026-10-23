@@ -14,7 +14,6 @@ import {
   getCharacterWindow,
   getChatWindow,
   getSettingsWindow,
-  openCharacterCreateWindow,
   openCharacterWindow,
   openChatWindow,
   openManualWindow,
@@ -345,7 +344,6 @@ if (!app.requestSingleInstanceLock()) {
         const ids = [DEFAULT_CHARACTER_ID, ...[...(await bundledCharacters.list()), ...(await characters.list())].map((m) => m.id)];
         return setCharacter(id, ids).ok;
       },
-      openCreateWindow: openCharacterCreateWindow,
       listSpeakers: () => voicevox.listSpeakers(),
       // 選択画面の声の説明（v5.18）。VOICEVOX から取れた話者名を userData に覚えておき、止まっていても名前を出す
       speakerNames: createSpeakerNames({

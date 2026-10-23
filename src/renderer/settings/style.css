@@ -423,3 +423,238 @@ h2 {
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* ---- キャラクター作成・編集（F-17・3.6。v5.19 で別のウィンドウからキャラクタータブへ移した）---- */
+.character-editor {
+  max-width: 760px;
+}
+
+.character-editor .editor-head {
+  margin: 0 0 8px;
+}
+
+.character-editor h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.character-editor h2 {
+  margin: 20px 0 8px;
+}
+
+.character-editor .hint {
+  margin: 4px 0 8px;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.character-editor .hint.error {
+  color: #c0392b;
+}
+
+.character-editor input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 5px 8px;
+}
+
+.character-editor .slots {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.character-editor .slots th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 400;
+  color: #777777;
+  padding: 0 4px 4px;
+}
+
+.character-editor .slots td {
+  padding: 6px 4px;
+  border-top: 1px solid #eeeeee;
+  vertical-align: middle;
+}
+
+.character-editor .slot-label {
+  white-space: nowrap;
+}
+
+.character-editor .required {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #e5484d;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.character-editor .folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.character-editor .folder-status {
+  font-size: 12px;
+  color: #666666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.character-editor .folder-status.ok {
+  color: #1e7e34;
+}
+
+.character-editor .folder-status.error {
+  color: #c0392b;
+  white-space: normal;
+}
+
+.character-editor input[type='number'] {
+  width: 56px;
+  font: inherit;
+  padding: 3px 4px;
+}
+
+.character-editor button {
+  font: inherit;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.character-editor button.danger {
+  color: #b42318;
+}
+
+.character-editor .actions {
+  margin: 16px 0 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.character-editor .status {
+  font-size: 12px;
+  color: #666666;
+}
+
+.character-editor .status.ok {
+  color: #1e7e34;
+}
+
+.character-editor .status.error {
+  color: #c0392b;
+}
+
+.character-editor .voice-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.character-editor .voice-row select {
+  grid-column: 2 / 4;
+  font: inherit;
+  padding: 3px 4px;
+}
+
+.character-editor .voice-row output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.character-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+.character-editor textarea::placeholder {
+  color: #aaaaaa;
+}
+
+.character-editor .persona-foot,
+.character-editor .line-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.character-editor .count {
+  flex: none;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777777;
+  font-variant-numeric: tabular-nums;
+}
+
+.character-editor .count.error {
+  color: #c0392b;
+}
+
+/* セリフ（F-22）：初めは閉じた <details> */
+.character-editor .lines {
+  margin: 20px 0 0;
+}
+
+.character-editor .lines summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: #555555;
+  border-bottom: 1px solid #dddddd;
+  padding-bottom: 4px;
+}
+
+.character-editor .lines h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: #555555;
+}
+
+.character-editor .line-field {
+  margin: 10px 0;
+}
+
+.character-editor .line-field label {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.character-editor .line-field textarea.error {
+  outline: 2px solid #c0392b;
+}
+
+.character-editor .line-foot .hint {
+  margin: 2px 0 0;
+}
+
+/* Gemini でセリフを作る（Phase 14） */
+.character-editor .generate {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  background: #f6f6f6;
+  border-radius: 4px;
+}
+
+.character-editor .generate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.character-editor .generate .hint {
+  margin: 6px 0 0;
+}

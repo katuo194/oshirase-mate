@@ -8,7 +8,6 @@ import {
   characterFrameUrl,
   describeImportError,
   isBundledCharacterId,
-  isValidCharacterId,
 } from './characterImport.js';
 import { isLinesError, linesGuide } from './characterLines.js';
 import { validatePersona } from './characterProfile.js';
@@ -386,9 +385,10 @@ const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== nul
 
 /**
  * キャラクター選択画面・作成／編集画面用IPC（F-17・3.6・v5.9）。それぞれ自分のウィンドウからの呼び出しだけを受け付ける。
- * 選択画面：character:list / character:select / character:open-create / character:open-edit、一覧が変わるたびに character:changed
- * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / reset / list / remove / list-speakers / generate-lines、
- *                一覧が変わるたびに characterCreate:changed
+ * v5.19：どちらも設定ウィンドウの「キャラクター」タブの中の画面になった（getCharacterWindow・getCharacterCreateWindow はどちらも設定ウィンドウ）。
+ * 作成／編集画面はタブの中で切り替えるので、開くための IPC（以前の character:open-create / open-edit）は無い。
+ * 選択画面：character:list / character:select、一覧が変わるたびに character:changed
+ * 作成／編集画面：characterCreate:begin / pick-folder / clear-slot / import / save / reset / remove / list-speakers / generate-lines
  * 選んだフォルダのフルパスはメインだけが持ち（スロット名に紐付け）、レンダラーにはフォルダ名（末尾）と検証結果だけを返す。
  * 同梱キャラクター（F-23）は黄色い丸と同じく声・キャラクター設定・セリフだけを保存でき（bundled.saveProfile）、「同梱の状態に戻す」（reset）がある。
  * @param {object} opts
@@ -398,7 +398,6 @@ const fpsInput = (req) => (req && typeof req.fps === 'object' && req.fps !== nul
  * @param {ReturnType<import('./bundledCharacters.js').createBundledCharacters>} opts.bundled 同梱キャラクター
  * @param {(win: Electron.BrowserWindow, displayName: string) => Promise<boolean>} opts.confirmReset 同梱の状態に戻してよいかの確認
  * @param {(id: string) => Promise<boolean>} opts.select 選択を保存する（存在確認込み）
- * @param {(opts?: { editId?: string }) => void} opts.openCreateWindow
  * @param {(win: Electron.BrowserWindow) => Promise<string | null>} opts.pickFolder OSのフォルダ選択ダイアログ
  * @param {(win: Electron.BrowserWindow, displayName: string) => Promise<boolean>} opts.confirmRemove 削除の確認
  * @param {() => Promise<{ name: string, styles: { id: number, name: string }[] }[]>} opts.listSpeakers VOICEVOX の話者一覧
@@ -415,7 +414,6 @@ export function registerCharacterIpc({
   repository,
   bundled,
   select,
-  openCreateWindow,
   pickFolder,
   confirmRemove,
   confirmReset,
@@ -454,12 +452,10 @@ export function registerCharacterIpc({
 
   async function broadcast() {
     const view = await list();
-    for (const [getWin, channel] of [[getCharacterWindow, 'character:changed'], [getCharacterCreateWindow, 'characterCreate:changed']]) {
-      const win = getWin();
-      if (win && !win.isDestroyed()) win.webContents.send(channel, view);
-    }
+    const win = getCharacterWindow();
+    if (win && !win.isDestroyed()) win.webContents.send('character:changed', view);
   }
-  // 選択の変更（どの経路でも）を両画面の表示へ反映する
+  // 選択の変更（どの経路でも）を選択画面の表示へ反映する
   let lastCharacter = getSettings().character;
   settingsEvents.on('change', (settings) => {
     if (settings.character === lastCharacter) return;
@@ -478,16 +474,6 @@ export function registerCharacterIpc({
     guardSelect(e);
     const ok = await select(typeof id === 'string' ? id : '');
     return { ok, ...(await list()) };
-  });
-
-  ipcMain.handle('character:open-create', (e) => {
-    guardSelect(e);
-    openCreateWindow();
-  });
-
-  ipcMain.handle('character:open-edit', (e, id) => {
-    guardSelect(e);
-    if (typeof id === 'string' && (id === DEFAULT_CHARACTER_ID || isBundledCharacterId(id) || isValidCharacterId(id))) openCreateWindow({ editId: id });
   });
 
   /**
@@ -697,11 +683,6 @@ export function registerCharacterIpc({
     await broadcast();
     onCharacterUpdated(id);
     return { ok: true, character: bundledEditView(result.character) };
-  });
-
-  ipcMain.handle('characterCreate:list', (e) => {
-    guardCreate(e);
-    return list();
   });
 
   ipcMain.handle('characterCreate:remove', async (e, id) => {

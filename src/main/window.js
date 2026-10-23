@@ -590,96 +590,21 @@ export function closeChatWindow() {
   if (chatWindow && !chatWindow.isDestroyed()) chatWindow.close();
 }
 
-// ---- キャラクター選択・作成ウィンドウ（Phase 8）。セキュリティは設定ウィンドウと同水準 ----
+// ---- キャラクター選択・作成／編集画面（Phase 8）----
+// v5.19：どちらも設定ウィンドウの「キャラクター」タブの中の画面になった（作成／編集画面はタブの中で一覧と切り替える）。
+// IPC の送信元の確認（ipc.js）には、どちらも設定ウィンドウを返す。
 
-/**
- * シングルトンのツールウィンドウを開く（既に開いていれば前面に出すだけ。query が変わるときは読み込み直す）。
- * @param {{ current: Electron.BrowserWindow | null, query?: string }} slot
- * @param {{ width: number, height: number, title: string, preload: string, page: string, parent?: Electron.BrowserWindow | null, query?: Record<string, string> }} opts
- */
-function openToolWindow(slot, { width, height, title, preload, page, parent = null, query = {} }) {
-  const file = path.join(dirname, '../renderer', page, 'index.html');
-  const queryKey = new URLSearchParams(query).toString();
-  if (slot.current) {
-    if (slot.query !== queryKey) {
-      slot.query = queryKey;
-      slot.current.loadFile(file, { query });
-    }
-    if (slot.current.isMinimized()) slot.current.restore();
-    slot.current.show();
-    slot.current.focus();
-    return slot.current;
-  }
-
-  const win = new BrowserWindow({
-    width,
-    height,
-    show: false,
-    title,
-    resizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    autoHideMenuBar: true,
-    backgroundColor: '#ffffff',
-    ...(parent && !parent.isDestroyed() ? { parent } : {}),
-    webPreferences: {
-      preload: path.join(dirname, '../preload', preload),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-    },
-  });
-  win.setMenu(null);
-
-  // ローカルHTML以外を開かせない（外部リンクや新規ウィンドウを遮断）
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (e) => e.preventDefault());
-
-  win.once('ready-to-show', () => win.show());
-  win.on('closed', () => {
-    slot.current = null;
-  });
-
-  win.loadFile(file, { query });
-  slot.current = win;
-  slot.query = queryKey;
-  return win;
-}
-
-const characterCreateWindow = { current: null };
-
-/**
- * キャラクター選択画面のウィンドウ。IPC の送信元検証用。未オープンなら null。
- * 選択画面は設定ウィンドウのタブなので、設定ウィンドウを返す（v5.19）。
- */
+/** キャラクター選択画面のウィンドウ。IPC の送信元検証用。未オープンなら null。 */
 export function getCharacterWindow() {
   return settingsWindow;
 }
 
-/** キャラクター作成ウィンドウ。IPC の送信元検証用。未オープンなら null。 */
+/** キャラクター作成／編集画面のウィンドウ。IPC の送信元検証用。未オープンなら null。 */
 export function getCharacterCreateWindow() {
-  return characterCreateWindow.current;
+  return settingsWindow;
 }
 
 /** キャラクター選択画面（3.6）を開く。設定ウィンドウを「キャラクター」のタブで開く（v5.19）。 */
 export function openCharacterWindow() {
   return openSettingsWindow({ tab: 'character' });
-}
-
-/**
- * キャラクター作成／編集画面（3.6）を開く。選択画面（設定ウィンドウ）から開いたときはその子ウィンドウにする（前後関係を保つ）。
- * 既に開いていて対象（作成／どのキャラクターの編集か）が変わる場合は、入力中の内容を捨てて開き直す。
- * @param {{ editId?: string | null }} [opts] 編集するキャラクターの ID（'default' は既定キャラクター）。無ければ新規作成
- */
-export function openCharacterCreateWindow({ editId = null } = {}) {
-  return openToolWindow(characterCreateWindow, {
-    width: 600,
-    height: 820,
-    title: editId ? 'キャラクター編集' : 'キャラクター作成',
-    preload: 'characterCreate.cjs',
-    page: 'characterCreate',
-    parent: settingsWindow,
-    query: editId ? { edit: editId } : {},
-  });
 }

@@ -89,8 +89,6 @@ contextBridge.exposeInMainWorld('linksApi', {
 contextBridge.exposeInMainWorld('characterApi', {
   list: () => ipcRenderer.invoke('character:list'),
   select: (id) => ipcRenderer.invoke('character:select', String(id)),
-  openCreate: () => ipcRenderer.invoke('character:open-create'),
-  openEdit: (id) => ipcRenderer.invoke('character:open-edit', String(id)), // 取り込んだキャラクターは全項目、既定キャラクターは声と設定のみ
   // 取り込み・削除・選択の変更（他の画面・トレイから）を受け取る。戻り値は購読解除関数
   onChanged: (callback) => {
     const listener = (_event, view) => callback(view);
@@ -106,4 +104,27 @@ contextBridge.exposeInMainWorld('tabsApi', {
     ipcRenderer.on('settings:show-tab', listener);
     return () => ipcRenderer.removeListener('settings:show-tab', listener);
   },
+});
+
+// キャラクター作成／編集（F-17・3.6・v5.9）。v5.19 で別のウィンドウからキャラクタータブの中へ移した。
+// フォルダの選択はメインがOSのダイアログで行い、ここにはフォルダ名（末尾）と検証結果だけが返る
+contextBridge.exposeInMainWorld('characterCreateApi', {
+  // 画面を開いたとき（前回選んだフォルダを忘れる）。editId があれば編集モードで、その今の値が返る
+  begin: (editId) => ipcRenderer.invoke('characterCreate:begin', editId ? String(editId) : ''),
+  pickFolder: (slot) => ipcRenderer.invoke('characterCreate:pick-folder', String(slot)),
+  clearSlot: (slot) => ipcRenderer.invoke('characterCreate:clear-slot', String(slot)),
+  // { displayName, fps: { [slot]: number }, voice, persona, lines }。フォルダは pickFolder で選んだもの
+  // lines（セリフ。F-22）は { notify: { [kind]: string }, idle: { [kind]: string }, chat: { closing: string } }（各欄の文字列。分割・検証はメイン）
+  importCharacter: (req) => ipcRenderer.invoke('characterCreate:import', req),
+  // 編集の保存。{ displayName, slots: { [slot]: 'keep' | 'picked' | 'none' }, fps, voice, persona, lines }
+  save: (id, req) => ipcRenderer.invoke('characterCreate:save', String(id), req),
+  // 同梱キャラクター（F-23）を同梱の状態に戻す（メインが確認のダイアログを出す）。{ ok, character? , canceled?, message? }
+  resetBundled: (id) => ipcRenderer.invoke('characterCreate:reset', String(id)),
+  // VOICEVOX の話者一覧（声の選択用）。{ available, speakers: [{ name, styles: [{ id, name }] }] }
+  listSpeakers: () => ipcRenderer.invoke('characterCreate:list-speakers'),
+  // セリフの案を Gemini で作る（Phase 14）。{ displayName, persona, replace }。保存はしない
+  // 戻り値：{ ok: true, lines, missing } | { ok: false, canceled: true } | { ok: false, reason, message }
+  generateLines: (req) => ipcRenderer.invoke('characterCreate:generate-lines', req),
+  // 取り込んだキャラクターの削除（メインが確認のダイアログを出す）。v5.19 で編集画面の「削除」ボタンから呼ぶ
+  remove: (id) => ipcRenderer.invoke('characterCreate:remove', String(id)),
 });
