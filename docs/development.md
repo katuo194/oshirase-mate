@@ -99,7 +99,9 @@ assets/characters/bundled-boy/
 npm run dist:shared
 ```
 
-共有版を `dist/shared/oshirase-mate-shared-<version>-win-x64.zip` に作ります。`.env` は含めず（ビルド後に `scripts/check-dist.mjs` が確認します）、セットアップ手順書（`docs/setup-guide.html` を `セットアップ手順書.html` という名前で）と `LICENSE.txt` を実行ファイルと同じフォルダに同梱します。同梱キャラクターの画像・固定ボイスは `assets/` ごと app.asar に入ります（素材がそろっていなければ `check-dist` が止めます）。
+共有版を `dist/shared/oshirase-mate-shared-<version>-win-x64.zip` に作ります。`.env` は含めず（ビルド後に `scripts/check-dist.mjs` が確認します）、セットアップ手順書（`docs/setup-guide.html` を `セットアップ手順書.html` という名前で）と `LICENSE.txt` を実行ファイルと同じフォルダに同梱します。同梱キャラクターの画像・固定ボイスは `assets/` ごと app.asar に入ります（素材がそろっていなければ `check-dist` が止めます）。Chromium の言語ファイル（`locales/`）は日本語と英語だけを入れます（`build/electron-builder.base.cjs` の `electronLanguages`。`check-dist` が確かめます）。
+
+ソースを変えたら、配布する前に必ずビルドし直してください（`dist/` の zip はビルドした時点のソースのままです）。
 
 ```bash
 npm run dist:personal
