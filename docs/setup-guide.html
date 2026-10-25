@@ -287,6 +287,7 @@
     <!-- ================================================================ -->
     <h2 id="voicevox">3. VOICEVOX（読み上げ。任意）</h2>
     <p>通知・アイドルトーク・チャットの読み上げには、無料の音声合成ソフト <strong>VOICEVOX</strong> を使います。VOICEVOX は本アプリに含まれていません。使う場合は各自でインストールしてください。入れなくても、読み上げ以外の機能はすべて使えます。</p>
+    <div class="note"><span class="note-title">シアン・シトロンは VOICEVOX が無くても話します</span>最初から入っているキャラクターのうち「シアン」「シトロン」は、VOICEVOX で事前に録音した声で、アイドルトークとお知らせ（件名は読まずに「予定の時間だよ」のような短い一言）を話します。VOICEVOX を起動していると、お知らせを件名入りで読み上げます。声（話者・話速・音高）を変えると、録音してある声は使わず VOICEVOX だけで話します。</div>
     <ol class="steps">
       <li>
         設定画面の <span class="ui">ボイス（VOICEVOX）</span> 欄の <span class="ui">VOICEVOX を入手</span> を押すと（または <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX 公式サイト</a>）公式サイトが開くので、ダウンロードしてインストールします。
@@ -315,7 +316,8 @@
         </ul>
       </li>
     </ol>
-    <div class="note">会話で入力した文章（とキャラクター設定）は、応答を作るために Google の Gemini API に送られます。予定・メール・TODO の内容は送りません。無料枠の範囲や料金は Google AI Studio で確認してください。</div>
+    <p>API キーを保存すると、キャラクターの編集画面の <span class="ui">Gemini でセリフを作る</span> も使えるようになります（キャラクターの性格に合わせて、お知らせの読み上げ・アイドルトーク・チャットの終わりの言葉の案を作ります。案は <span class="ui">保存</span> を押すまで反映されません）。</p>
+    <div class="note">会話で入力した文章（とキャラクター設定）は、応答を作るために Google の Gemini API に送られます。<span class="ui">Gemini でセリフを作る</span> を押したときは、キャラクター名とキャラクター設定が送られます。予定・メール・TODO の内容は送りません。お知らせやアイドルトークのたびに Gemini を使うことはありません。無料枠の範囲や料金は Google AI Studio で確認してください。</div>
 
     <!-- ================================================================ -->
     <h2 id="trouble">5. 困ったとき</h2>
@@ -330,6 +332,7 @@
         <tr><td>7日ほどで「連携の有効期限が切れました」と出る</td><td><a href="#google-consent">手順 2</a> で、同意画面が「テスト」のままになっています。「本番環境」に公開してから連携し直してください。</td></tr>
         <tr><td>通知が来ない</td><td>設定画面で「連携中」になっているか確認してください。重要メールは最大約1分、予定・TODO は更新から最大約5分で取り込まれます。</td></tr>
         <tr><td>「VOICEVOX未検出」と出る／読み上げされない</td><td>VOICEVOX を起動して「再確認」を押してください。ミュート中・ボイス音量0%のときも読み上げません。</td></tr>
+        <tr><td>シアン・シトロンが VOICEVOX なしで話さない</td><td>声（話者・話速・音高）を変えていると、録音してある声は使いません。キャラクターの編集画面の「同梱の状態に戻す」で元の声に戻ります。</td></tr>
         <tr><td>読み上げが遅い・途中から読まれない</td><td>VOICEVOX の GPU 版をお使いください（<a href="#voicevox">3</a> の手順1）。1件の準備に20秒以上かかる場合は読み上げを省略します。</td></tr>
         <tr><td>「インターネットにつながらないみたい」と出る</td><td>ネットワークが戻ると自動で再開します。</td></tr>
       </tbody>
@@ -340,7 +343,8 @@
     <h2 id="credits">クレジット</h2>
     <ul>
       <li><strong>VOICEVOX</strong>：読み上げに <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> を使用しています（本アプリには同梱していません）。使用する音声ライブラリのクレジット（「VOICEVOX:話者名」）は設定画面のボイス欄に表示されます。</li>
-      <li><strong>EmoteLab</strong>：キャラクター画像を <a href="https://emotelab.app/" target="_blank" rel="noopener">EmoteLab</a> で作成した場合は、EmoteLab を使用した旨のクレジット表記が必要です（<a href="https://emotelab.app/eula/" target="_blank" rel="noopener">EmoteLab EULA</a>）。EmoteLab 本体は本アプリに含まれません。</li>
+      <li><strong>同梱キャラクターの声</strong>：「シアン」「シトロン」の録音してある声は、VOICEVOX で事前に合成したものです（<strong>VOICEVOX:ずんだもん</strong>、<strong>VOICEVOX:四国めたん</strong>）。</li>
+      <li><strong>EmoteLab</strong>：同梱キャラクター（シアン・シトロン）の画像は <a href="https://emotelab.app/" target="_blank" rel="noopener">EmoteLab</a> とその内蔵アセットを使用して作成しています。自分で EmoteLab で作成したキャラクターを公開・配布する場合も、EmoteLab を使用した旨のクレジット表記が必要です（<a href="https://emotelab.app/eula/" target="_blank" rel="noopener">EmoteLab EULA</a>）。EmoteLab 本体は本アプリに含まれません。</li>
     </ul>
 
     <footer>おしらせメイト セットアップ手順書</footer>
