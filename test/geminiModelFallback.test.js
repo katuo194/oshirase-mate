@@ -3,7 +3,7 @@ import { createFakeGemini } from '../mocks/gemini/index.js';
 import { FALLBACK_MESSAGES, createChatSession, fallbackFor } from '../src/main/gemini.js';
 import { GEMINI_MODELS, GeminiError, createGeminiClient, safeApiMessage } from '../src/main/geminiClient.js';
 
-const KEY = 'AIzaSyFAKE-KEY-FOR-TESTS-0123456789abcd';
+const KEY = 'fake-gemini-key-for-tests-0123456789';
 const req = { systemPrompt: 'SYS', contents: [{ role: 'user', text: 'こんにちは' }] };
 const modelOf = (call) => /models\/([^:]+):generateContent/.exec(call.url)[1];
 

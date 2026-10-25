@@ -11,3 +11,10 @@
 | `assets/characters/bundled-girl/voice/*.wav` | 同梱キャラクター（シトロン）の固定ボイス。VOICEVOX で事前に合成したもの | **MIT の対象外**。VOICEVOX と音声ライブラリ「四国めたん」の利用規約に従います。クレジットは「VOICEVOX:四国めたん」 |
 
 `assets/characters/*/manifest.json`（名前・キャラクター設定・セリフなどの設定）は MIT です。
+
+## 固定ボイス（録音）を再利用する場合
+
+固定ボイスの WAV をおしらせメイトの外で使う（取り出して動画などに使う、フォークして配布する等）場合は、次の規約に従ってください。クレジット（「VOICEVOX:ずんだもん」「VOICEVOX:四国めたん」）の表記が必要です。
+
+- [VOICEVOX 利用規約](https://voicevox.hiroshiba.jp/term/)
+- [東北ずん子・ずんだもんプロジェクト 音源利用ガイドライン](https://zunko.jp/con_ongen_kiyaku.html)（「VOICEVOX ずんだもん、…四国めたん…音源利用規約」と「音源についての共通規約」）

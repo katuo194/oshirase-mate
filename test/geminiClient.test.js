@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeGemini } from '../mocks/gemini/index.js';
 import { GEMINI_MODELS, GeminiError, MAX_OUTPUT_TOKENS, classifyHttpFailure, createGeminiClient, extractText, safeApiMessage } from '../src/main/geminiClient.js';
 
-const KEY = 'AIzaSyFAKE-KEY-FOR-TESTS-0123456789abcd';
+const KEY = 'fake-gemini-key-for-tests-0123456789';
 const req = { systemPrompt: 'SYS', contents: [{ role: 'user', text: 'こんにちは' }] };
 
 function setup({ replies, key = KEY, timeoutMs } = {}) {
