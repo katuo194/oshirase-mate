@@ -22,6 +22,9 @@ module.exports = {
   files: ['package.json', 'src/**/*', 'assets/**/*', '!**/*.map'],
   asar: true,
   npmRebuild: false,
+  // Chromium の言語ファイル（locales/*.pak）は日本語と、見つからないときの代わりに使う英語だけを入れる。
+  // 全55言語では展開後 49MB・zip で約 12MB あり、アプリは日本語だけなので使わない（Phase 16）
+  electronLanguages: ['ja', 'en-US'],
   win: {
     target: [{ target: 'zip', arch: ['x64'] }],
   },

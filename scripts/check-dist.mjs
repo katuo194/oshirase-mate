@@ -3,6 +3,7 @@
 //   node scripts/check-dist.mjs post shared   … ビルド後：共有版に .env が含まれていないこと、ビルド時の版が shared であること、手順書と LICENSE.txt があること、
 //                                               同梱キャラクター（F-23）の素材がそろっていて app.asar に入っていること
 //   node scripts/check-dist.mjs post personal … ビルド後：個人版に resources/.env があり、ビルド時の版が personal であること
+//   （post は両版とも、Chromium の言語ファイルが日本語・英語だけであることも確かめる）
 // 値そのものは表示しない。
 
 import fs from 'node:fs';
@@ -54,6 +55,12 @@ if (envInAsar.length > 0) fail(`app.asar に .env が含まれています: ${en
 const pkg = JSON.parse(asar.extractFile(archive, 'package.json').toString('utf8'));
 if (pkg.mascotEdition !== edition) fail(`ビルド時の版が ${edition} ではありません（mascotEdition=${pkg.mascotEdition}）`);
 ok(`ビルド時の版 = ${edition}、app.asar に .env なし`);
+
+// Chromium の言語ファイルは日本語・英語だけ（electron-builder.base.cjs の electronLanguages）
+const locales = fs.readdirSync(path.join(path.dirname(resources), 'locales')).sort();
+const expectedLocales = ['en-US.pak', 'ja.pak'];
+if (locales.join() !== expectedLocales.join()) fail(`locales の中身が ${expectedLocales.join('・')} ではありません: ${locales.join(', ')}`);
+ok(`locales: ${locales.join('・')}`);
 
 const envInResources = fs.existsSync(path.join(resources, '.env'));
 if (edition === 'shared') {
