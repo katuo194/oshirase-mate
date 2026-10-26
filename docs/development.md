@@ -117,7 +117,7 @@ NSIS インストーラーは使いません。未署名のインストーラー
 
 配布するのは共有版だけです（個人版は `.env` を含むため、リリースに載せません）。ビルドは手元の Windows PC で行います。
 
-1. `package.json` の version を上げます（タグを作らずに package-lock.json もそろえる）
+1. `package.json` の version を上げます（タグを作らずに package-lock.json もそろえる）。最初のリリース（v0.1.0）は、package.json がすでに 0.1.0 なので上げません。
 
    ```bash
    npm version <新しい版> --no-git-tag-version
@@ -129,14 +129,32 @@ NSIS インストーラーは使いません。未署名のインストーラー
    npm test
    ```
 
-3. 共有版をビルドします（`check-dist` が `.env` が無いこと・セットアップ手順書と LICENSE.txt があること・同梱キャラクターの素材がそろって入っていることを確かめます）
+3. main を最新にした状態で、共有版をビルドします（`check-dist` が `.env` が無いこと・セットアップ手順書と LICENSE.txt があること・同梱キャラクターの素材がそろって入っていること・言語ファイルを確かめます）。ビルドの途中で止めると壊れた zip が残るので、最後の `check-dist` の OK まで待ちます。
 
    ```bash
    npm run dist:shared
    ```
 
-4. version の変更をコミットして push してから、リリースを作ります（zip と、展開前に読めるようにセットアップ手順書を添付）
+4. zip を別の場所に展開して起動し、動くことを確かめます（同梱キャラクターが VOICEVOX なしで話す・手順書が開く・LICENSE.txt がある）。
+
+5. リリースノートを `docs/release-notes/v<新しい版>.md` に書き、version の変更と一緒にコミットして main に入れます。
+
+6. **下書き**のリリースを作ります（zip と、展開前に読めるようにセットアップ手順書を添付）。下書きはリポジトリの管理者にしか見えません。GitHub のリリースの画面で、添付したファイルと本文を確かめます。
 
    ```bash
-   gh release create v<新しい版> dist/shared/oshirase-mate-shared-<新しい版>-win-x64.zip docs/setup-guide.html --title "v<新しい版>" --generate-notes
+   gh release create v<新しい版> dist/shared/oshirase-mate-shared-<新しい版>-win-x64.zip docs/setup-guide.html --draft --title "v<新しい版>" --notes-file docs/release-notes/v<新しい版>.md
    ```
+
+7. 下書きを公開します（このとき main の先頭にタグ `v<新しい版>` が作られます）。
+
+   ```bash
+   gh release edit v<新しい版> --draft=false
+   ```
+
+8. 公開したリリースから zip をダウンロードし、展開して起動できることを確かめます。
+
+## 公開リポジトリでの注意
+
+- **Push protection が有効です。** 本物の形をした API キー・Client Secret（`AIza` で始まる 39 文字、`GOCSPX-` で始まる値など）を含むコミットは push で止められます。テストのダミーの値は、本物の形に一致しないものにします（例：`fake-gemini-key-for-tests-0123456789`）。
+- **コミットの作成者は `katuo194 <259521388+katuo194@users.noreply.github.com>` です。** GitHub の画面で PR をマージすると、マージコミットの作成者には GitHub のプロフィールの名前（Settings → Public profile → Name）が入ります。プロフィールの名前に実名を入れないでください。
+- 書き換える前の履歴（Phase 16 で作成者名を書き換えた。要件定義書 v5.20）のコミットを指すブランチは、push しないでください（旧リポジトリは `oshirase-mate-archive` として非公開で残しています）。

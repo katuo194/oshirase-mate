@@ -13,7 +13,7 @@ import {
   parseGeneratedLines,
 } from '../src/main/lineGenerator.js';
 
-const KEY = 'AIzaSyFAKE-KEY-FOR-TESTS-0123456789abcd';
+const KEY = 'fake-gemini-key-for-tests-0123456789';
 
 /** Gemini が返す JSON（すべての種類に使える文がある） */
 const goodResponse = () => ({
