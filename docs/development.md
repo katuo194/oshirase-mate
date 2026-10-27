@@ -1,6 +1,6 @@
 # 開発者向けの説明
 
-利用者向けの説明は [README.md](../README.md)、要件は [要件定義書_v5.md](要件定義書_v5.md) を見てください。
+利用者向けの説明は [README.md](../README.md)、要件は [要件定義書_v6.md](要件定義書_v6.md) を見てください。
 
 ## 動かし方
 
@@ -29,7 +29,7 @@ npm run dev
 
 利用者に見せる画面・文書（設定画面・README・手順書）では「共有版」という言葉を使いません。
 
-版は「`config.json` に保存された `edition`」→「ビルド時の既定値（配布パッケージの `package.json` の `mascotEdition`）」→「プロジェクト直下の `.env` に Client ID と Secret が両方入っていれば個人版、無ければ共有版」の順で決まります（要件定義書 v5.19）。
+版は「`config.json` に保存された `edition`」→「ビルド時の既定値（配布パッケージの `package.json` の `mascotEdition`）」→「プロジェクト直下の `.env` に Client ID と Secret が両方入っていれば個人版、無ければ共有版」の順で決まります（要件定義書 2.5）。
 
 GitHub から取得したソースを `.env` なしで `npm start` すると共有版として起動し、配布版の zip と同じく設定画面の「Google 連携の準備」で自分のクライアントの JSON を読み込めば連携できます。保存先も配布版と同じ `%APPDATA%\おしらせメイト` なので、配布版を起動している間は起動できません（二重起動として、起動中の配布版の設定画面が開きます）。`.env` の無い作業用の複製（`.claude/worktrees/` など）から起動するときも同じです。配布版のデータと分けたいときは、下の「共有版の動作確認」のように `--user-data-dir` を付けて起動してください。
 
@@ -47,7 +47,7 @@ New-Item -ItemType Directory -Force "$env:TEMP\mascot-shared" | Out-Null
 npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 は実行ポリシーで止まることがあるため .cmd を使う
 ```
 
-`--user-data-dir` を明示したときだけ、普段の保存先の固定（`src/main/pinUserDataDir.js`）をしません（要件定義書 v5.15）。起動ログの先頭が「起動（共有版）」になっていれば共有版です（ログは `$env:TEMP\mascot-shared\logs\`）。保存先が別なので、個人版を起動したままでも同時に起動できます。
+`--user-data-dir` を明示したときだけ、普段の保存先の固定（`src/main/pinUserDataDir.js`）をしません（要件定義書 2.5）。起動ログの先頭が「起動（共有版）」になっていれば共有版です（ログは `$env:TEMP\mascot-shared\logs\`）。保存先が別なので、個人版を起動したままでも同時に起動できます。
 
 設定画面のボタンで開く外部のページ（「Google 連携の準備」の手順 1〜3 の Console・VOICEVOX・Gemini API キー）は `src/main/externalLinks.js` の表、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL が変わったら、この表と手順書を直してください。
 
@@ -109,7 +109,7 @@ npm run dist:personal
 
 個人版を `dist/personal/` に作ります。`.env` を `resources/.env` に同梱するため、**配布しないでください**。
 
-NSIS インストーラーは使いません。未署名のインストーラーはスマート アプリ コントロールが有効な Windows で実行を止められ、electron-builder がビルド中にインストーラーを実行するため、そうした PC（開発PCを含む）ではビルドもできないためです（要件定義書 9章#2・#8）。
+NSIS インストーラーは使いません。未署名のインストーラーはスマート アプリ コントロールが有効な Windows で実行を止められ、electron-builder がビルド中にインストーラーを実行するため、そうした PC（開発PCを含む）ではビルドもできないためです（要件定義書 8.1・付録 A-13）。
 
 コード署名はしていないため、ダウンロードした zip から展開すると初回の実行時に SmartScreen の警告が出ます（手順書・README に回避方法を記載）。アプリのアイコンは `build/resources/icon.png`（実行ファイル。256×256 以上）と `assets/icons/icon.png`（トレイ）に画像を置くと使われます（無ければ Electron の既定アイコンと黄色い丸）。
 
@@ -157,4 +157,4 @@ NSIS インストーラーは使いません。未署名のインストーラー
 
 - **Push protection が有効です。** 本物の形をした API キー・Client Secret（`AIza` で始まる 39 文字、`GOCSPX-` で始まる値など）を含むコミットは push で止められます。テストのダミーの値は、本物の形に一致しないものにします（例：`fake-gemini-key-for-tests-0123456789`）。
 - **コミットの作成者は `katuo194 <259521388+katuo194@users.noreply.github.com>` です。** GitHub の画面で PR をマージすると、マージコミットの作成者には GitHub のプロフィールの名前（Settings → Public profile → Name）が入ります。プロフィールの名前に実名を入れないでください。
-- 書き換える前の履歴（Phase 16 で作成者名を書き換えた。要件定義書 v5.20）のコミットを指すブランチは、push しないでください（旧リポジトリは `oshirase-mate-archive` として非公開で残しています）。
+- 書き換える前の履歴（Phase 16 で作成者名を書き換えた。要件定義書 8.4）のコミットを指すブランチは、push しないでください（旧リポジトリは `oshirase-mate-archive` として非公開で残しています）。

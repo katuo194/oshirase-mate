@@ -148,4 +148,4 @@ Google のデータを読むための「クライアント」を、あなたの 
 
 ## 開発者向け
 
-ソースコードからの起動・テスト・配布物の作り方・リリース手順は [docs/development.md](docs/development.md) を、要件は [docs/要件定義書_v5.md](docs/要件定義書_v5.md) を見てください。
+ソースコードからの起動・テスト・配布物の作り方・リリース手順は [docs/development.md](docs/development.md) を、要件は [docs/要件定義書_v6.md](docs/要件定義書_v6.md) を見てください。
