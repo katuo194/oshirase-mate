@@ -477,10 +477,18 @@ if (!app.requestSingleInstanceLock()) {
     // 設定の変更（トレイ・設定画面どちらから来ても）をここで一括して反映する
     let lastLaunchAtLogin = getSettings().launchAtLogin;
     let lastCharacter = getSettings().character;
+    let lastTaskNotifyTime = `${getSettings().taskNotifyHour}:${getSettings().taskNotifyMinute}`;
     settingsEvents.on('change', (settings) => {
       if (settings.character !== lastCharacter) {
         lastCharacter = settings.character;
         void applyCharacter(log);
+      }
+      // TODO の通知時刻を変えたら、TODO を取り直して予約（タイマー）を新しい時刻で組み直す（Phase 16）
+      const taskNotifyTime = `${settings.taskNotifyHour}:${settings.taskNotifyMinute}`;
+      if (taskNotifyTime !== lastTaskNotifyTime) {
+        lastTaskNotifyTime = taskNotifyTime;
+        log.info(`[app] TODO の通知時刻を ${settings.taskNotifyHour}:${String(settings.taskNotifyMinute).padStart(2, '0')} に変更しました`);
+        void pipeline?.scheduler.runNow('tasks');
       }
       tray.refreshMenu();
       mascot?.setDisplayMode(settings.displayMode); // 常時表示／通知時のみ表示（F-20）
@@ -759,6 +767,7 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
         listTaskLists: api.listTaskLists,
         listTasks: api.listTasks,
         notifyHour: () => getPollingConfig().taskNotifyHour,
+        notifyMinute: () => getPollingConfig().taskNotifyMinute,
       }),
       gmail: createGmailProvider({ listMessages: api.listMessages, getMessage: api.getMessage, log }),
     },

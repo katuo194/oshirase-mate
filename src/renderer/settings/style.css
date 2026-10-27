@@ -119,6 +119,18 @@ h2 {
   cursor: pointer;
 }
 
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.time-row input {
+  font: inherit;
+  padding: 2px 4px;
+}
+
 .hint {
   margin: 4px 0 0;
   font-size: 12px;

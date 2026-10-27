@@ -164,6 +164,12 @@
           <input id="notify-only" type="checkbox" />
           <span>通知のときだけマスコットを表示する</span>
         </label>
+        <!-- TODO の通知時刻（Phase 16）。Google ToDo の期限は日付だけなので、期限の日のこの時刻に知らせる -->
+        <label class="time-row">
+          <span>TODO のお知らせ時刻</span>
+          <input id="task-notify-time" type="time" step="60" required />
+        </label>
+        <p class="hint">期限の日のこの時刻に知らせます。Google ToDo でタスクに時刻を付けても、アプリには日付しか届きません。</p>
       </section>
 
       <!-- ショートカット（F-19。v5.15 でソースからの起動でも作れるようにした〔おしらせメイト（開発）.lnk〕） -->

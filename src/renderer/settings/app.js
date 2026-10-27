@@ -5,8 +5,10 @@ const voiceValue = document.getElementById('volume-voice-value');
 const muted = document.getElementById('muted');
 const launchAtLogin = document.getElementById('launch-at-login');
 const notifyOnly = document.getElementById('notify-only');
+const taskNotifyTime = document.getElementById('task-notify-time');
 
 const toPercent = (v) => Math.round(v * 100);
+const pad2 = (n) => String(n).padStart(2, '0');
 
 // ドラッグ中のスライダー。外部からの変更通知でつまみを巻き戻さないために覚えておく
 const dragging = new Set();
@@ -24,6 +26,10 @@ function render(settings) {
   muted.checked = settings.muted;
   launchAtLogin.checked = settings.launchAtLogin;
   notifyOnly.checked = settings.displayMode === 'notifyOnly';
+  // 入力中（フォーカスがある間）は書き換えない。打ちかけの値を巻き戻さないため
+  if (document.activeElement !== taskNotifyTime) {
+    taskNotifyTime.value = `${pad2(settings.taskNotifyHour)}:${pad2(settings.taskNotifyMinute)}`;
+  }
 }
 
 // スライダー：ドラッグ中は表示のみ更新し、離した時（change）に保存する
@@ -54,6 +60,16 @@ launchAtLogin.addEventListener('change', async () => {
 
 notifyOnly.addEventListener('change', async () => {
   render(await window.settingsApi.update({ displayMode: notifyOnly.checked ? 'notifyOnly' : 'always' }));
+});
+
+// TODO の通知時刻。入力欄が空（消しかけ）のときは保存せず、欄から離れたら保存済みの時刻に戻す
+taskNotifyTime.addEventListener('change', async () => {
+  const m = /^(\d{2}):(\d{2})$/.exec(taskNotifyTime.value);
+  if (!m) return;
+  render(await window.settingsApi.update({ taskNotifyHour: Number(m[1]), taskNotifyMinute: Number(m[2]) }));
+});
+taskNotifyTime.addEventListener('blur', async () => {
+  render(await window.settingsApi.get());
 });
 
 // トレイ等、他の経路で設定が変わったときの同期

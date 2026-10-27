@@ -9,7 +9,15 @@ describe('normalizeSettings', () => {
   });
 
   it('正しい保存値はそのまま返す', () => {
-    const raw = { character: 'default', muted: true, volume: { sfx: 0.3, voice: 0.5 }, launchAtLogin: true, displayMode: 'notifyOnly' };
+    const raw = {
+      character: 'default',
+      muted: true,
+      volume: { sfx: 0.3, voice: 0.5 },
+      launchAtLogin: true,
+      displayMode: 'notifyOnly',
+      taskNotifyHour: 9,
+      taskNotifyMinute: 30,
+    };
     expect(normalizeSettings(raw)).toEqual(raw);
   });
 
@@ -30,7 +38,14 @@ describe('normalizeSettings', () => {
 
   it('Phase 1 対象外のキー（characterAnchor など）は含めない', () => {
     const s = normalizeSettings({ characterAnchor: { x: 1, y: 2 }, oauth: { clientId: 'a' } });
-    expect(Object.keys(s).sort()).toEqual(['character', 'displayMode', 'launchAtLogin', 'muted', 'volume']);
+    expect(Object.keys(s).sort()).toEqual(['character', 'displayMode', 'launchAtLogin', 'muted', 'taskNotifyHour', 'taskNotifyMinute', 'volume']);
+  });
+
+  it('TODO の通知時刻（Phase 16）：未設定・範囲外・小数は 16:00 に戻す。0 時 0 分は有効', () => {
+    expect(normalizeSettings({})).toMatchObject({ taskNotifyHour: 16, taskNotifyMinute: 0 });
+    expect(normalizeSettings({ taskNotifyHour: 0, taskNotifyMinute: 0 })).toMatchObject({ taskNotifyHour: 0, taskNotifyMinute: 0 });
+    expect(normalizeSettings({ taskNotifyHour: 24, taskNotifyMinute: 60 })).toMatchObject({ taskNotifyHour: 16, taskNotifyMinute: 0 });
+    expect(normalizeSettings({ taskNotifyHour: 8.5, taskNotifyMinute: '15' })).toMatchObject({ taskNotifyHour: 16, taskNotifyMinute: 0 });
   });
 });
 
@@ -49,6 +64,13 @@ describe('sanitizePatch', () => {
     for (const displayMode of ['hidden', '', 1, true, null, ['always']]) {
       expect(sanitizePatch({ displayMode })).toEqual({});
     }
+  });
+
+  it('TODO の通知時刻は 0〜23 時・0〜59 分の整数だけを通す（Phase 16）', () => {
+    expect(sanitizePatch({ taskNotifyHour: 9, taskNotifyMinute: 5 })).toEqual({ taskNotifyHour: 9, taskNotifyMinute: 5 });
+    expect(sanitizePatch({ taskNotifyHour: 0, taskNotifyMinute: 59 })).toEqual({ taskNotifyHour: 0, taskNotifyMinute: 59 });
+    for (const v of [24, -1, 1.5, '9', null, true]) expect(sanitizePatch({ taskNotifyHour: v })).toEqual({});
+    for (const v of [60, -1, 0.5, '5', null]) expect(sanitizePatch({ taskNotifyMinute: v })).toEqual({});
   });
 
   it('character・未知キー・characterAnchor は捨てる', () => {
@@ -86,6 +108,15 @@ describe('diffPatch', () => {
     expect(diffPatch(current, { displayMode: 'always' })).toEqual([]);
   });
 
+  it('TODO の通知時刻の変更を、時と分のキーごとに返す（Phase 16）', () => {
+    expect(diffPatch(current, { taskNotifyHour: 9, taskNotifyMinute: 30 })).toEqual([
+      ['taskNotifyHour', 9],
+      ['taskNotifyMinute', 30],
+    ]);
+    expect(diffPatch(current, { taskNotifyHour: 16, taskNotifyMinute: 15 })).toEqual([['taskNotifyMinute', 15]]);
+    expect(diffPatch(current, { taskNotifyHour: 16, taskNotifyMinute: 0 })).toEqual([]);
+  });
+
   it('現在値と同じなら何も返さない', () => {
     expect(diffPatch(current, { muted: false, volume: { sfx: 0.8 }, launchAtLogin: false })).toEqual([]);
   });
@@ -97,8 +128,15 @@ describe('diffPatch', () => {
   });
 
   it('書き込みキーは常に許可リスト内', () => {
-    const allowed = new Set(['muted', 'launchAtLogin', 'displayMode', 'volume.sfx', 'volume.voice']);
-    const patch = sanitizePatch({ muted: true, launchAtLogin: true, displayMode: 'notifyOnly', volume: { sfx: 0.1, voice: 0.2 } });
+    const allowed = new Set(['muted', 'launchAtLogin', 'displayMode', 'volume.sfx', 'volume.voice', 'taskNotifyHour', 'taskNotifyMinute']);
+    const patch = sanitizePatch({
+      muted: true,
+      launchAtLogin: true,
+      displayMode: 'notifyOnly',
+      volume: { sfx: 0.1, voice: 0.2 },
+      taskNotifyHour: 7,
+      taskNotifyMinute: 45,
+    });
     for (const [k] of diffPatch(current, patch)) expect(allowed.has(k)).toBe(true);
   });
 });

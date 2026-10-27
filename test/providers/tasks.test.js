@@ -10,11 +10,11 @@ import {
 } from '../../src/main/providers/tasks.js';
 
 /** ローカル時刻の期待値は同じ組み立て方で作る（タイムゾーンに依存しないアサーションにするため） */
-const localAt = (y, m, d, hour) => new Date(y, m - 1, d, hour, 0, 0, 0).getTime();
+const localAt = (y, m, d, hour, minute = 0) => new Date(y, m - 1, d, hour, minute, 0, 0).getTime();
 
-function poll(notifyHour = () => DEFAULT_NOTIFY_HOUR) {
+function poll(notifyHour = () => DEFAULT_NOTIFY_HOUR, notifyMinute = undefined) {
   const api = createFakeGoogleApi();
-  return createTasksProvider({ listTaskLists: api.listTaskLists, listTasks: api.listTasks, notifyHour }).poll();
+  return createTasksProvider({ listTaskLists: api.listTaskLists, listTasks: api.listTasks, notifyHour, notifyMinute }).poll();
 }
 const byId = (list, id) => list.find((n) => n.id === id);
 
@@ -22,6 +22,7 @@ describe('dateOnly / localTimeOnDate', () => {
   it('日付部分だけを取り出してローカルの指定時刻を返す', () => {
     expect(localTimeOnDate('2026-09-21T00:00:00.000Z', 16)).toBe(localAt(2026, 9, 21, 16));
     expect(localTimeOnDate('2026-09-21', 0)).toBe(localAt(2026, 9, 21, 0));
+    expect(localTimeOnDate('2026-09-21T00:00:00.000Z', 9, 45)).toBe(localAt(2026, 9, 21, 9, 45));
   });
 
   it('UTCより西のタイムゾーンでも日付が前日にずれない（new Date(due) 経由との違い）', () => {
@@ -107,6 +108,20 @@ describe('providers/tasks / F-02 TODO通知の検知', () => {
   it('taskNotifyHour を変えると通知時刻が変わる', async () => {
     const n = byId(await poll(() => 9), 'task:list-main:task-milk:2026-09-20');
     expect(n.notifyAt).toBe(localAt(2026, 9, 20, 9));
+  });
+
+  it('taskNotifyMinute で分まで指定できる（Phase 16。省略時は 0 分）', async () => {
+    const n = byId(await poll(() => 8, () => 30), 'task:list-main:task-milk:2026-09-20');
+    expect(n.notifyAt).toBe(localAt(2026, 9, 20, 8, 30));
+    expect(taskNotifyTime('2026-09-20T00:00:00.000Z', 23, 59)).toBe(localAt(2026, 9, 20, 23, 59));
+    expect(new Date(taskNotifyTime('2026-09-20T00:00:00.000Z')).getMinutes()).toBe(0);
+  });
+
+  it('時刻を変えても通知 ID は変わらない（その日にすでに知らせた TODO を、時刻の変更でもう一度知らせない）', async () => {
+    const before = byId(await poll(), 'task:list-main:task-milk:2026-09-20');
+    const after = byId(await poll(() => 18, () => 15), 'task:list-main:task-milk:2026-09-20');
+    expect(after.id).toBe(before.id);
+    expect(after.notifyAt).toBe(localAt(2026, 9, 20, 18, 15));
   });
 
   it('期限が変更されたタスクは別IDになり、改めて通知される', () => {

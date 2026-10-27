@@ -1,5 +1,6 @@
 // 設定の既定値・正規化・更新パッチ検証。Electron に依存しない純粋ロジック（Vitest でテスト可能にするため store.js から分離）。
 // Phase 1 で扱うキー：character / muted / volume.sfx / volume.voice / launchAtLogin（6.1）。Phase 10 で displayMode（F-20）を追加。
+// Phase 16 で TODO の通知時刻 taskNotifyHour / taskNotifyMinute を追加（読み出しは pollingConfig.js と同じ決まり）。
 // それ以外のキー（characterAnchor や将来 Phase のキー）はここでは一切扱わない。
 
 export const DEFAULTS = Object.freeze({
@@ -8,6 +9,8 @@ export const DEFAULTS = Object.freeze({
   volume: Object.freeze({ sfx: 0.8, voice: 1.0 }),
   launchAtLogin: false,
   displayMode: 'always',
+  taskNotifyHour: 16,
+  taskNotifyMinute: 0,
 });
 
 /** 表示モード（F-20）：常時表示／通知時のみ表示 */
@@ -20,6 +23,8 @@ const roundVolume = (n) => Math.round(clamp01(n) * 100) / 100;
 const isBool = (v) => typeof v === 'boolean';
 const isVolume = (v) => typeof v === 'number' && Number.isFinite(v);
 const isDisplayMode = (v) => DISPLAY_MODES.includes(v);
+const isHour = (v) => Number.isInteger(v) && v >= 0 && v <= 23;
+const isMinute = (v) => Number.isInteger(v) && v >= 0 && v <= 59;
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /** 保存済みの生データ（欠損・型不正あり得る）を、Phase 1 対象キーのみの正規化済み設定にする。 */
@@ -35,13 +40,16 @@ export function normalizeSettings(raw) {
     },
     launchAtLogin: isBool(r.launchAtLogin) ? r.launchAtLogin : DEFAULTS.launchAtLogin,
     displayMode: isDisplayMode(r.displayMode) ? r.displayMode : DEFAULTS.displayMode,
+    taskNotifyHour: isHour(r.taskNotifyHour) ? r.taskNotifyHour : DEFAULTS.taskNotifyHour,
+    taskNotifyMinute: isMinute(r.taskNotifyMinute) ? r.taskNotifyMinute : DEFAULTS.taskNotifyMinute,
   };
 }
 
 /**
- * レンダラー等からの更新パッチを検証する。許可するのは muted / volume.sfx / volume.voice / launchAtLogin / displayMode のみ。
+ * レンダラー等からの更新パッチを検証する。許可するのは muted / volume.sfx / volume.voice / launchAtLogin / displayMode /
+ * taskNotifyHour（0〜23 の整数）/ taskNotifyMinute（0〜59 の整数）のみ。
  * character は設定画面からは変更不可（Phase 8：キャラクター選択画面から store.setCharacter の専用経路で変える）。未知キー・不正な型は黙って捨てる。
- * @returns {{ muted?: boolean, volume?: { sfx?: number, voice?: number }, launchAtLogin?: boolean, displayMode?: 'always' | 'notifyOnly' }}
+ * @returns {{ muted?: boolean, volume?: { sfx?: number, voice?: number }, launchAtLogin?: boolean, displayMode?: 'always' | 'notifyOnly', taskNotifyHour?: number, taskNotifyMinute?: number }}
  */
 export function sanitizePatch(patch) {
   const out = {};
@@ -49,6 +57,8 @@ export function sanitizePatch(patch) {
   if (isBool(patch.muted)) out.muted = patch.muted;
   if (isBool(patch.launchAtLogin)) out.launchAtLogin = patch.launchAtLogin;
   if (isDisplayMode(patch.displayMode)) out.displayMode = patch.displayMode;
+  if (isHour(patch.taskNotifyHour)) out.taskNotifyHour = patch.taskNotifyHour;
+  if (isMinute(patch.taskNotifyMinute)) out.taskNotifyMinute = patch.taskNotifyMinute;
   if (isPlainObject(patch.volume)) {
     const volume = {};
     if (isVolume(patch.volume.sfx)) volume.sfx = roundVolume(patch.volume.sfx);
@@ -72,6 +82,9 @@ export function diffPatch(current, patch) {
   }
   if (patch.displayMode !== undefined && patch.displayMode !== current.displayMode) {
     entries.push(['displayMode', patch.displayMode]);
+  }
+  for (const k of ['taskNotifyHour', 'taskNotifyMinute']) {
+    if (patch[k] !== undefined && patch[k] !== current[k]) entries.push([k, patch[k]]);
   }
   for (const k of ['sfx', 'voice']) {
     const next = patch.volume?.[k];
