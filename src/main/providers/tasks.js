@@ -5,22 +5,23 @@
 //   listTasks: (id) => tasks.tasks.list({ tasklist: id, showCompleted: false }).then((r) => r.data)
 //
 // Google Tasks の due は日付単位で、常にUTC 0時のタイムスタンプとして返る。
-// 通知時刻は「その日付のローカル16:00」固定（config.json の taskNotifyHour）。
+// 通知時刻は「その日付のローカルの指定時刻」（既定 16:00。設定画面で変えられ、config.json の taskNotifyHour・taskNotifyMinute に保存する）。
 // 発火はポーリング判定ではなくタイマー（4章の応答性要件のため。7.1参照）。
 
 import { SOURCES, makeNotificationId } from '../notifyQueue.js';
 import { dateKey, localTimeOnDate } from './dateOnly.js';
 
-/** config.json の taskNotifyHour 既定値（6.1）。 */
+/** config.json の taskNotifyHour・taskNotifyMinute の既定値（6.1）。 */
 export const DEFAULT_NOTIFY_HOUR = 16;
+export const DEFAULT_NOTIFY_MINUTE = 0;
 
 /**
- * due（UTC0時のタイムスタンプ）から、ローカルのその日 hour 時を返す。
+ * due（UTC0時のタイムスタンプ）から、ローカルのその日 hour 時 minute 分を返す。
  * 日付部分だけを使うのが要点。ローカル変換してから日付を取ると西側のタイムゾーンで1日ずれる。
  * @returns {number | null} エポックms
  */
-export function taskNotifyTime(due, hour = DEFAULT_NOTIFY_HOUR) {
-  return localTimeOnDate(due, hour);
+export function taskNotifyTime(due, hour = DEFAULT_NOTIFY_HOUR, minute = DEFAULT_NOTIFY_MINUTE) {
+  return localTimeOnDate(due, hour, minute);
 }
 
 /** 通知対象のタスクか（未完了・未削除・期限あり）。 */
@@ -32,9 +33,9 @@ export function isNotifiable(task) {
  * タスクリストと各リストのタスクを、通知オブジェクトの配列にする（純粋関数）。通知時刻の昇順。
  *
  * @param {Array<{ taskList: object, tasks: object }>} lists [{ taskList: tasklists の1件, tasks: tasks.list のレスポンス }]
- * @param {{ notifyHour?: number }} [ctx]
+ * @param {{ notifyHour?: number, notifyMinute?: number }} [ctx]
  */
-export function normalizeTasks(lists, { notifyHour = DEFAULT_NOTIFY_HOUR } = {}) {
+export function normalizeTasks(lists, { notifyHour = DEFAULT_NOTIFY_HOUR, notifyMinute = DEFAULT_NOTIFY_MINUTE } = {}) {
   const out = [];
 
   for (const { taskList, tasks } of lists ?? []) {
@@ -43,7 +44,7 @@ export function normalizeTasks(lists, { notifyHour = DEFAULT_NOTIFY_HOUR } = {})
 
     for (const task of tasks?.items ?? []) {
       if (!isNotifiable(task)) continue;
-      const notifyAt = taskNotifyTime(task.due, notifyHour);
+      const notifyAt = taskNotifyTime(task.due, notifyHour, notifyMinute);
       const due = dateKey(task.due);
       if (notifyAt === null || due === null) continue;
 
@@ -74,8 +75,9 @@ export function normalizeTasks(lists, { notifyHour = DEFAULT_NOTIFY_HOUR } = {})
  * @param {() => Promise<object>} deps.listTaskLists tasklists.list の生レスポンス
  * @param {(taskListId: string) => Promise<object>} deps.listTasks tasks.list の生レスポンス
  * @param {() => number} [deps.notifyHour] config.json の taskNotifyHour を返す関数（Phase 4 で store と繋ぐ）
+ * @param {() => number} [deps.notifyMinute] config.json の taskNotifyMinute を返す関数
  */
-export function createTasksProvider({ listTaskLists, listTasks, notifyHour = () => DEFAULT_NOTIFY_HOUR }) {
+export function createTasksProvider({ listTaskLists, listTasks, notifyHour = () => DEFAULT_NOTIFY_HOUR, notifyMinute = () => DEFAULT_NOTIFY_MINUTE }) {
   return {
     /** @returns {Promise<object[]>} 予約通知の配列（reminderTimers.reconcile にそのまま渡せる） */
     async poll() {
@@ -84,7 +86,7 @@ export function createTasksProvider({ listTaskLists, listTasks, notifyHour = () 
       for (const taskList of taskLists) {
         lists.push({ taskList, tasks: await listTasks(taskList.id) });
       }
-      return normalizeTasks(lists, { notifyHour: notifyHour() });
+      return normalizeTasks(lists, { notifyHour: notifyHour(), notifyMinute: notifyMinute() });
     },
   };
 }

@@ -48,14 +48,17 @@ export function getSettings() {
     volume: store.get('volume'),
     launchAtLogin: store.get('launchAtLogin'),
     displayMode: store.get('displayMode'),
+    taskNotifyHour: store.get('taskNotifyHour'),
+    taskNotifyMinute: store.get('taskNotifyMinute'),
   });
 }
 
-/** ポーリング間隔と TODO 通知時刻（読み取り専用。Phase 4 では設定画面から変更しない）。 */
+/** ポーリング間隔（読み取り専用）と TODO 通知時刻（Phase 16 から設定画面で変えられる。書き込みは updateSettings）。 */
 export function getPollingConfig() {
   return normalizePollingConfig({
     polling: store.get('polling'),
     taskNotifyHour: store.get('taskNotifyHour'),
+    taskNotifyMinute: store.get('taskNotifyMinute'),
   });
 }
 

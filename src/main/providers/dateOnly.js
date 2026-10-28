@@ -11,14 +11,15 @@
  *
  * @param {string} value "YYYY-MM-DD" または "YYYY-MM-DDTHH:mm:ss.sssZ"
  * @param {number} hour ローカルの時（終日予定なら0、TODOなら taskNotifyHour）
+ * @param {number} [minute] ローカルの分（TODOなら taskNotifyMinute）
  * @returns {number | null} エポックms。日付として読めなければ null
  */
-export function localTimeOnDate(value, hour) {
+export function localTimeOnDate(value, hour, minute = 0) {
   if (typeof value !== 'string') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!m) return null;
   const [, y, mo, d] = m;
-  const t = new Date(Number(y), Number(mo) - 1, Number(d), hour, 0, 0, 0);
+  const t = new Date(Number(y), Number(mo) - 1, Number(d), hour, minute, 0, 0);
   // 2026-02-30 のような存在しない日付は Date が繰り上げてしまうので弾く
   if (t.getMonth() !== Number(mo) - 1 || t.getDate() !== Number(d)) return null;
   return t.getTime();
