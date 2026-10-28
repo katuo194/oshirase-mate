@@ -5,10 +5,29 @@ const voiceValue = document.getElementById('volume-voice-value');
 const muted = document.getElementById('muted');
 const launchAtLogin = document.getElementById('launch-at-login');
 const notifyOnly = document.getElementById('notify-only');
-const taskNotifyTime = document.getElementById('task-notify-time');
+
+// TODO のお知らせ時刻（時・分のリール。timeReel.js）。回している間は保存せず、止まって少し経ってから 1 回だけ保存する
+// （1 目盛りごとに保存すると、そのたびに TODO を取り直すため）
+const TASK_TIME_SAVE_DELAY_MS = 700;
+let taskTimeSaveTimer = null;
+const scheduleTaskTimeSave = () => {
+  clearTimeout(taskTimeSaveTimer);
+  taskTimeSaveTimer = setTimeout(async () => {
+    taskTimeSaveTimer = null;
+    render(await window.settingsApi.update({ taskNotifyHour: taskHourReel.value, taskNotifyMinute: taskMinuteReel.value }));
+  }, TASK_TIME_SAVE_DELAY_MS);
+};
+const taskHourReel = window.TimeReel.mount(document.getElementById('task-notify-hour'), { max: 23, onInput: scheduleTaskTimeSave });
+const taskMinuteReel = window.TimeReel.mount(document.getElementById('task-notify-minute'), { max: 59, onInput: scheduleTaskTimeSave });
+// 保存待ちのままウィンドウを閉じたら、待たずに送る（動かした値を取りこぼさない）
+window.addEventListener('pagehide', () => {
+  if (taskTimeSaveTimer === null) return;
+  clearTimeout(taskTimeSaveTimer);
+  taskTimeSaveTimer = null;
+  void window.settingsApi.update({ taskNotifyHour: taskHourReel.value, taskNotifyMinute: taskMinuteReel.value });
+});
 
 const toPercent = (v) => Math.round(v * 100);
-const pad2 = (n) => String(n).padStart(2, '0');
 
 // ドラッグ中のスライダー。外部からの変更通知でつまみを巻き戻さないために覚えておく
 const dragging = new Set();
@@ -26,9 +45,10 @@ function render(settings) {
   muted.checked = settings.muted;
   launchAtLogin.checked = settings.launchAtLogin;
   notifyOnly.checked = settings.displayMode === 'notifyOnly';
-  // 入力中（フォーカスがある間）は書き換えない。打ちかけの値を巻き戻さないため
-  if (document.activeElement !== taskNotifyTime) {
-    taskNotifyTime.value = `${pad2(settings.taskNotifyHour)}:${pad2(settings.taskNotifyMinute)}`;
+  // 保存待ちの間（回している途中）は書き換えない。動かした値を巻き戻さないため
+  if (taskTimeSaveTimer === null) {
+    taskHourReel.set(settings.taskNotifyHour);
+    taskMinuteReel.set(settings.taskNotifyMinute);
   }
 }
 
@@ -60,16 +80,6 @@ launchAtLogin.addEventListener('change', async () => {
 
 notifyOnly.addEventListener('change', async () => {
   render(await window.settingsApi.update({ displayMode: notifyOnly.checked ? 'notifyOnly' : 'always' }));
-});
-
-// TODO の通知時刻。入力欄が空（消しかけ）のときは保存せず、欄から離れたら保存済みの時刻に戻す
-taskNotifyTime.addEventListener('change', async () => {
-  const m = /^(\d{2}):(\d{2})$/.exec(taskNotifyTime.value);
-  if (!m) return;
-  render(await window.settingsApi.update({ taskNotifyHour: Number(m[1]), taskNotifyMinute: Number(m[2]) }));
-});
-taskNotifyTime.addEventListener('blur', async () => {
-  render(await window.settingsApi.get());
 });
 
 // トレイ等、他の経路で設定が変わったときの同期

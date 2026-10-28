@@ -164,12 +164,17 @@
           <input id="notify-only" type="checkbox" />
           <span>通知のときだけマスコットを表示する</span>
         </label>
-        <!-- TODO の通知時刻（Phase 16）。Google ToDo の期限は日付だけなので、期限の日のこの時刻に知らせる -->
-        <label class="time-row">
-          <span>TODO のお知らせ時刻</span>
-          <input id="task-notify-time" type="time" step="60" required />
-        </label>
-        <p class="hint">期限の日のこの時刻に知らせます。Google ToDo でタスクに時刻を付けても、アプリには日付しか届きません。</p>
+        <!-- TODO の通知時刻（Phase 16）。Google ToDo の期限は日付だけなので、期限の日のこの時刻に知らせる。
+             リールは timeReel.js（ホイール 1 目盛りで 1 つずつ動く。<input type="time"> の選択リストは上下で動く量が違ったため） -->
+        <div class="time-row">
+          <span id="task-notify-label">TODO のお知らせ時刻</span>
+          <div class="time-reels" role="group" aria-labelledby="task-notify-label">
+            <div id="task-notify-hour" class="reel" role="spinbutton" aria-label="時"></div>
+            <span class="time-colon">:</span>
+            <div id="task-notify-minute" class="reel" role="spinbutton" aria-label="分"></div>
+          </div>
+        </div>
+        <p class="hint">期限の日のこの時刻に知らせます（ホイール・↑↓キー・上下の数字のクリックで 1 つずつ動きます）。Google ToDo でタスクに時刻を付けても、アプリには日付しか届きません。</p>
       </section>
 
       <!-- ショートカット（F-19。v5.15 でソースからの起動でも作れるようにした〔おしらせメイト（開発）.lnk〕） -->
@@ -321,6 +326,7 @@
 
     <p class="credit">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。EmoteLab 本体は本アプリに含まれません。</p>
   </template>
+  <script src="timeReel.js"></script>
   <script src="app.js"></script>
   <script src="characterEditor.js"></script>
   <script src="character.js"></script>

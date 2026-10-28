@@ -122,13 +122,65 @@ h2 {
 .time-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   margin: 10px 0 0;
 }
 
-.time-row input {
+/* TODO のお知らせ時刻のリール（timeReel.js）。上に 1 つ前・中央に今の値・下に 1 つ後を並べる */
+.time-reels {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-colon {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.reel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 44px;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  background: #fafafa;
+  user-select: none;
+  cursor: ns-resize;
+}
+
+.reel:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 1px;
+}
+
+.reel-side {
   font: inherit;
-  padding: 2px 4px;
+  font-size: 12px;
+  width: 100%;
+  padding: 1px 0;
+  border: none;
+  background: transparent;
+  color: #aaaaaa;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.reel-side:hover {
+  color: #555555;
+}
+
+.reel-current {
+  width: 100%;
+  padding: 2px 0;
+  border-top: 1px solid #e3e3e3;
+  border-bottom: 1px solid #e3e3e3;
+  background: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .hint {
