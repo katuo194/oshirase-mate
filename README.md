@@ -45,11 +45,13 @@ Windows 標準の通知は使わず、マスコット自身が知らせるので
 
 マスコットを右クリック →「設定」を開きます。
 
-<img src="docs/images/settings.webp" width="720" alt="設定画面。上に「設定」「Google 連携」「キャラクター」のタブ、左に「Googleアカウント連携」、右に音量・ボイス（VOICEVOX）・チャット（Gemini）・動作・ショートカット・クレジットが並んでいる">
+<img src="docs/images/settings.webp" width="720" alt="設定画面。上に「設定」「Google 連携」「キャラクター」のタブ、左に「Googleアカウント連携」・音量・ボイス（VOICEVOX）・チャット（Gemini）、右に動作・ショートカット・クレジットが並んでいる">
 
 ### Google との連携（予定・TODO・メールのお知らせに必要）
 
 Google のデータを読むための「クライアント」（Client ID と Client Secret）をアプリに読み込んでから連携します（最初の1回だけ）。設定画面の上の「Google 連携」タブに、2 通りの手順が並んでいます。
+
+<img src="docs/images/google.webp" width="720" alt="設定画面の「Google 連携」タブ。左に「Google 連携の準備」の状態と「A. クライアントを受け取った人」（Client ID と Client Secret の欄・連携する）、右に「B. 自分でクライアントを作る」の手順 1-a〜5 が並んでいる">
 
 - **A. 開発者からクライアントを受け取った人**（5 分ほど）：受け取った Client ID と Client Secret を貼り付けて「保存」し、「連携する」を押します。
 - **B. 自分でクライアントを作る人**（30 分ほど）：各手順のボタンで Google Cloud のページを開き、プロジェクトを作る → 3 つの API（Calendar・Tasks・Gmail）を有効にする → Google Auth Platform を設定して自分をテストユーザーに追加する → クライアント（デスクトップ アプリ）を作って JSON をダウンロードする → JSON を読み込む → 連携する、の順に進めます。この方法では連携が **7 日で切れる**ので、切れる前日にマスコットがお知らせしたら、設定画面の「連携し直す」を押します。
