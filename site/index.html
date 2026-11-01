@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>おしらせメイト</title>
+<meta name="description" content="デスクトップに住むマスコットが、Google カレンダーの予定・Google ToDo リストの期限・Gmail の重要なメールを知らせてくれる Windows アプリです。" />
+<link rel="stylesheet" href="style.css" />
+<!-- アプリのホームページ（Phase 16・要件定義書 2.4・付録 A-37）。GitHub Pages（https://katuo194.github.io/oshirase-mate/）で公開し、
+     配布用の Google Cloud プロジェクトの「ブランディング」にこの URL を入れる。アプリ名は同意画面と同じ「おしらせメイト」にする。
+     公開するファイルは scripts/build-site.mjs が集める（画像は docs/images/ から、手順書は docs/setup-guide.html をそのまま）。
+     利用者向けの文書なので「共有版」「個人版」という言葉は使わない（test/userDocs.test.js） -->
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="name" href="./">おしらせメイト</a>
+    <nav aria-label="サイト内">
+      <a href="./" aria-current="page">ホーム</a>
+      <a href="setup-guide.html">セットアップ手順書</a>
+      <a href="privacy.html">プライバシーポリシー</a>
+      <a href="https://github.com/katuo194/oshirase-mate">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <h1>おしらせメイト</h1>
+      <p class="lead">デスクトップに住むマスコットが、Google カレンダーの予定・Google ToDo リストの期限・Gmail の重要なメールを、アニメーション・効果音・読み上げで知らせてくれる Windows アプリです。</p>
+      <p class="buttons">
+        <a class="button primary" href="https://github.com/katuo194/oshirase-mate/releases">ダウンロード</a>
+        <a class="button" href="setup-guide.html">セットアップ手順書</a>
+      </p>
+    </div>
+    <img src="images/notify-citron.png" width="300" height="300" alt="マスコットのシトロンが、予定「定例ミーティング」が 10 分後に始まることを吹き出しで知らせている画面" />
+  </div>
+</section>
+
+<main>
+  <div class="wrap">
+    <h2 id="features">できること</h2>
+    <ul class="features">
+      <li><strong>予定・TODO・重要メールのお知らせ</strong>予定のリマインダーの時刻、TODO の期限の日（設定した時刻）、重要なメールが届いたときに、マスコットが吹き出しで知らせます。重要でないメールは、未読の件数だけを小さなバッジで表示します。</li>
+      <li><strong>読み上げ</strong><a href="https://voicevox.hiroshiba.jp/">VOICEVOX</a> を起動しておくと、お知らせを声で読み上げます。キャラクターごとに声を選べます。</li>
+      <li><strong>アイドルトーク</strong>しばらく操作がないと、マスコットがひとりごとを話します（深夜は話しません）。</li>
+      <li><strong>チャット</strong>Gemini API キーを設定すると、マスコットと会話できます（1 回の会話は 10 往復まで）。</li>
+      <li><strong>キャラクター</strong>最初から 3 体が入っています。<a href="https://emotelab.app/">EmoteLab</a> で作ったキャラクターを取り込むこともできます。</li>
+      <li><strong>見落としにくい</strong>Windows 標準の通知は使わず、マスコット自身が知らせます。</li>
+    </ul>
+
+    <h2 id="google-data">Google のデータを使う理由</h2>
+    <p>おしらせメイトは、お知らせを出すために、次の 3 つを<strong>読み取り専用の権限</strong>で読み取ります。予定・タスク・メールを変更・削除・送信することはありません。</p>
+    <ul>
+      <li><strong>Google カレンダー</strong>：今後 24 時間の予定のタイトル・開始時刻・リマインダー（リマインダーの時刻に知らせるため）</li>
+      <li><strong>Google ToDo リスト</strong>：未完了のタスクのタイトル・期限の日付（期限の日に知らせるため）</li>
+      <li><strong>Gmail</strong>：未読のメールの件名・差出人・日時と、重要かどうか（重要なメールを知らせ、ほかの未読の件数を出すため）。本文は使いません。</li>
+    </ul>
+    <p>読み取ったデータは、すべてお使いの PC の中で処理します。開発者のサーバーはなく、開発者にデータが届くことはありません。詳しくは<a href="privacy.html">プライバシーポリシー</a>をご覧ください。</p>
+
+    <h2 id="requirements">動作環境</h2>
+    <ul>
+      <li>Windows 11（64 ビット）</li>
+      <li>Google アカウント</li>
+      <li>任意：<a href="https://voicevox.hiroshiba.jp/">VOICEVOX</a>（読み上げを使う場合）</li>
+      <li>任意：Gemini API キー（チャットを使う場合）</li>
+    </ul>
+
+    <h2 id="start">はじめかた</h2>
+    <ol>
+      <li><a href="https://github.com/katuo194/oshirase-mate/releases">Releases</a> から最新の zip をダウンロードして展開し、<code>おしらせメイト.exe</code> を起動します（インストーラーはありません）。</li>
+      <li>マスコットを右クリック →「設定」の「Google 連携」タブで、Google と連携します。</li>
+    </ol>
+    <p>くわしい手順と困ったときの対処は、<a href="setup-guide.html">セットアップ手順書</a>にまとめています。不具合やご質問は <a href="https://github.com/katuo194/oshirase-mate/issues">GitHub の Issues</a> へどうぞ。</p>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>おしらせメイト ・ 開発：katuo194</span>
+    <nav aria-label="フッター">
+      <a href="privacy.html">プライバシーポリシー</a>
+      <a href="https://github.com/katuo194/oshirase-mate/blob/main/LICENSE">ライセンス（MIT）</a>
+      <a href="https://github.com/katuo194/oshirase-mate">ソースコード</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

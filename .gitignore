@@ -19,3 +19,6 @@ userData/
 /notified.json.tmp
 /logs/
 /tts/
+
+# ホームページの書き出し先（scripts/build-site.mjs）
+/_site/
