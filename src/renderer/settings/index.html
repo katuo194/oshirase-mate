@@ -16,7 +16,9 @@
     <button id="tab-character" type="button" role="tab" aria-controls="panel-character" data-tab="character" aria-selected="false" tabindex="-1">キャラクター</button>
   </nav>
 
-  <!-- 横に広いときは 2 列（左：Google との連携、右：それ以外。v5.15）、狭いときは 1 列に並べる（v5.19） -->
+  <!-- 横に広いときは 2 列（左：Google アカウント連携・音量・ボイス・チャット、右：動作・ショートカット・クレジット。v5.15）、狭いときは 1 列に並べる（v5.19）。
+       Phase 16 で Google 連携の準備を別のタブへ移して左の列が短くなったため、音量・ボイス・チャットを左へ移して高さをそろえた。1 列のときの並び順は変わらない -->
+
   <main id="panel-settings" class="panel columns" role="tabpanel" aria-labelledby="tab-settings">
     <div class="col">
       <section>
@@ -38,9 +40,7 @@
           <button id="open-google-tab" type="button">連携の準備を開く</button>
         </div>
       </section>
-    </div>
 
-    <div class="col">
       <section>
         <h2>音量</h2>
         <div class="row">
@@ -87,7 +87,9 @@
         <p id="gemini-detail" class="hint" hidden></p>
         <p class="hint">キーを保存すると、右クリックメニューの「話しかける」が使えます。</p>
       </section>
+    </div>
 
+    <div class="col">
       <section>
         <h2>動作</h2>
         <label class="check">

@@ -45,7 +45,7 @@ Windows 標準の通知は使わず、マスコット自身が知らせるので
 
 マスコットを右クリック →「設定」を開きます。
 
-<img src="docs/images/settings.webp" width="720" alt="設定画面。上に「設定」「Google 連携」「キャラクター」のタブ、左に「Googleアカウント連携」、右に音量・ボイス（VOICEVOX）・チャット（Gemini）・動作・ショートカット・クレジットが並んでいる">
+<img src="docs/images/settings.webp" width="720" alt="設定画面。上に「設定」「Google 連携」「キャラクター」のタブ、左に「Googleアカウント連携」・音量・ボイス（VOICEVOX）・チャット（Gemini）、右に動作・ショートカット・クレジットが並んでいる">
 
 ### Google との連携（予定・TODO・メールのお知らせに必要）
 
