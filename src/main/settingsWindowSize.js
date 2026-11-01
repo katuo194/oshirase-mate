@@ -2,8 +2,12 @@
 // 大きさは利用者が変えられ、閉じたときの大きさを config.json の settingsWindowSize に覚えて次に開くときに使う（位置は覚えない）。
 // 幅が狭いときは、画面側（settings/style.css）が 2 列を 1 列に並べ替える。
 
-/** 初めて開くときの内容の大きさ（DIP）。1 画面ですべて見えるよう横長にして 2 列で並べる（v5.15） */
-export const SETTINGS_DEFAULT_SIZE = Object.freeze({ width: 1000, height: 660 });
+/**
+ * 初めて開くときの内容の大きさ（DIP）。縦長にして 1 列で並べる（幅 760 以下。Phase 16）。
+ * 以前（v5.15）は 1 画面ですべて見えるよう横長（1000×660）にして 2 列にしていたが、Google 連携の準備を別のタブに分けて
+ * 設定タブの項目が減ったため、無理に横長にしなくてよいとユーザーが判断した。広げれば今までどおり 2 列になる
+ */
+export const SETTINGS_DEFAULT_SIZE = Object.freeze({ width: 720, height: 760 });
 /** これより小さくはできない（1 列に並べたときに入力欄が潰れない幅・タブと数項目が見える高さ） */
 export const SETTINGS_MIN_SIZE = Object.freeze({ width: 520, height: 420 });
 
@@ -28,8 +32,8 @@ export function resolveSettingsWindowSize(saved, workArea) {
   };
 }
 
-/** 設定ウィンドウのタブ。'settings' … 設定、'character' … キャラクター選択 */
-export const SETTINGS_TABS = Object.freeze(['settings', 'character']);
+/** 設定ウィンドウのタブ。'settings' … 設定、'google' … Google 連携（準備の手順。Phase 16）、'character' … キャラクター選択 */
+export const SETTINGS_TABS = Object.freeze(['settings', 'google', 'character']);
 
-/** @returns {value is 'settings' | 'character'} */
+/** @returns {value is 'settings' | 'google' | 'character'} */
 export const isSettingsTab = (value) => SETTINGS_TABS.includes(value);

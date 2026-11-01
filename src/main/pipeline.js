@@ -7,6 +7,8 @@
 //   メール（その他）   poll → 未読件数 → mailSummary.update（'updated' で外へ）
 //
 // 未連携（auth の status が linked 以外）のときは API を呼ばずスキップする。エラー扱いにはしない。
+// 連携が切れたとき（invalid_grant。Phase 16）は、連携し直したあとの初回取得で、切れていた間に届いた重要メールを通知する
+// （自分で作ったクライアントはテストモードのため 7 日で切れる。通常の連携解除・起動時は 7.1 のとおり既存の未読を通知済み扱い）。
 
 import { createReminderTimers } from './reminderTimers.js';
 import { createScheduler } from './scheduler.js';
@@ -87,6 +89,9 @@ export function createPipeline({
   /** 系統ごとに、最後に出したスキップ理由。同じ理由のスキップを毎回ログに出さないため。 */
   const lastSkip = new Map();
 
+  /** 最後に重要メールを取得できた時刻（取得を始めた時刻）。連携が切れていた間の分を拾う起点（Phase 16） */
+  let lastImportantPollAt = null;
+
   function logSkip(name, status) {
     if (lastSkip.get(name) === status) return;
     lastSkip.set(name, status);
@@ -162,9 +167,19 @@ export function createPipeline({
     [SOURCE_NAMES.MAIL_IMPORTANT]: () =>
       run(
         SOURCE_NAMES.MAIL_IMPORTANT,
-        () => providers.gmail.pollImportant(),
-        ({ notifications, seeded }) => {
-          if (seeded) log.info('[pipeline] gmail-important: 初回取得（既存の未読は通知済み扱い）');
+        async () => {
+          const at = now();
+          return { ...(await providers.gmail.pollImportant()), at };
+        },
+        ({ notifications, seeded, caughtUp, at }) => {
+          lastImportantPollAt = at;
+          if (seeded) {
+            log.info(
+              caughtUp === undefined
+                ? '[pipeline] gmail-important: 初回取得（既存の未読は通知済み扱い）'
+                : `[pipeline] gmail-important: 初回取得（連携が切れていた間に届いた ${caughtUp} 件を通知し、ほかの未読は通知済み扱い）`,
+            );
+          }
           let accepted = 0;
           for (const n of notifications) {
             // メールは検知した時点が通知時刻なのでタイマーを介さず直接キューへ
@@ -199,12 +214,21 @@ export function createPipeline({
     log,
   });
 
-  /** 連携が外れた（解除・invalid_grant）ときの後始末。再連携後に 7.1 の「初回は既存未読を通知済み扱い」が正しく効くようにする。 */
-  function resetState() {
+  /**
+   * 連携が外れた（解除・invalid_grant）ときの後始末。再連携後に 7.1 の「初回は既存未読を通知済み扱い」が正しく効くようにする。
+   * 切れた（invalid_grant）ときだけは、切れていた間に届いた重要メールを再連携後に拾う（Phase 16）。
+   * @param {{ expired?: boolean }} [opts]
+   */
+  function resetState({ expired = false } = {}) {
     reminderTimers.disposeAll();
     latest.calendar = [];
     latest.tasks = [];
     providers.gmail.reset();
+    if (expired) {
+      const since = lastImportantPollAt ?? now();
+      providers.gmail.catchUp(since);
+      log.info(`[pipeline] 連携が切れたため、連携し直したら ${localTimestamp(since)} より後に届いた重要メールを通知します`);
+    }
     mailSummary.reset();
     scheduler.resetOffline(); // 未連携はオフラインとは別の状態（invalid_grant をオフラインに数えない：2.3）
     log.info('[pipeline] 連携が外れたため予約通知と取得状態をリセット');
@@ -214,16 +238,18 @@ export function createPipeline({
   /** scheduler.start() 済みか。履歴の読み込み前に runNow して未初期化の notifyQueue に push しないため、running とは分ける */
   let ready = false;
   let previousStatus = auth.getState().status;
-  auth.events.on('change', ({ status }) => {
+  auth.events.on('change', ({ status, lastError }) => {
     if (status === previousStatus) return;
     previousStatus = status;
     if (status === 'linked') {
       // 起動時の認証確認中にスキップされた分・設定画面での連携直後を、次の間隔まで待たずに実行する
       if (ready) for (const name of Object.keys(pollers)) void scheduler.runNow(name);
     } else if (status === 'unlinked' || status === 'unconfigured') {
-      resetState();
+      resetState({ expired: status === 'unlinked' && lastError === 'expired' });
     }
   });
+  // 作る前に起動時の確認（auth.init）で切れていた場合（Phase 16）
+  if (previousStatus === 'unlinked' && auth.getState().lastError === 'expired') providers.gmail.catchUp(now());
 
   let usageTimer = null;
 

@@ -383,9 +383,9 @@ export function getSettingsWindow() {
 
 /**
  * 設定ウィンドウを開く。既に開いていれば前面に出すだけ（シングルトン）。
- * 設定とキャラクター選択（3.6）は同じウィンドウのタブ（v5.19）。tab を渡すとそのタブを表示し、省略すると
+ * 設定・Google 連携（Phase 16）・キャラクター選択（3.6）は同じウィンドウのタブ（v5.19）。tab を渡すとそのタブを表示し、省略すると
  * 開いていれば今のタブのまま、新しく開くときは設定のタブにする。
- * @param {{ tab?: 'settings' | 'character' }} [opts]
+ * @param {{ tab?: 'settings' | 'google' | 'character' }} [opts]
  */
 export function openSettingsWindow({ tab } = {}) {
   const showTab = isSettingsTab(tab) ? tab : null;
@@ -402,7 +402,7 @@ export function openSettingsWindow({ tab } = {}) {
     return settingsWindow;
   }
 
-  // 大きさは変えられる（v5.19）。前に閉じたときの大きさで開く（無ければ 1000×660。作業領域より大きくはしない）。
+  // 大きさは変えられる（v5.19）。前に閉じたときの大きさで開く（無ければ 720×760。作業領域より大きくはしない）。
   // 狭くすると画面側で 1 列に並べ替え、低い画面では列の中（1 列のときは全体）だけスクロールする
   const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   const size = resolveSettingsWindowSize(loadSettingsWindowSize(), workArea);
@@ -413,7 +413,7 @@ export function openSettingsWindow({ tab } = {}) {
     minHeight: Math.min(SETTINGS_MIN_SIZE.height, workArea.height - 40),
     useContentSize: true,
     show: false,
-    title: showTab === 'character' ? 'キャラクター選択' : '設定',
+    title: showTab === 'character' ? 'キャラクター選択' : showTab === 'google' ? 'Google 連携' : '設定',
     resizable: true,
     maximizable: true,
     fullscreenable: false,

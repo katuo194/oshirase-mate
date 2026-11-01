@@ -50,11 +50,14 @@ function loadTrayIcon(iconPath) {
  * @param {() => void} [opts.onToggleNotifyOnly] 「通知時のみ表示」を反転して保存する
  * @param {string} [opts.iconPath] トレイアイコンの画像（無ければ黄色い丸）
  * @param {() => Electron.MenuItemConstructorOptions[]} [opts.getDevItems] --dev 起動時だけ返す開発用メニュー項目（テスト通知など）。空なら何も足さない
+ * @param {() => boolean} [opts.isRelinkNeeded] Google 連携が切れた・切れそうか（Phase 16。linkExpiry.js）。true なら先頭に「Google と連携し直す…」を出す
+ * @param {() => void} [opts.onRelink] 「Google と連携し直す…」
  */
-export function createTray({ onQuit, onOpenSettings, onChangeCharacter = () => {}, onTalk = () => {}, isTalkEnabled = () => false, getMuted, onToggleMute, getNotifyOnly = () => false, onToggleNotifyOnly = () => {}, iconPath, getDevItems = () => [] }) {
+export function createTray({ onQuit, onOpenSettings, onChangeCharacter = () => {}, onTalk = () => {}, isTalkEnabled = () => false, getMuted, onToggleMute, getNotifyOnly = () => false, onToggleNotifyOnly = () => {}, iconPath, getDevItems = () => [], isRelinkNeeded = () => false, onRelink = () => {} }) {
   const buildMenu = () => {
     const devItems = getDevItems();
     return Menu.buildFromTemplate([
+      ...(isRelinkNeeded() ? [{ label: 'Google と連携し直す…', click: onRelink }, { type: 'separator' }] : []),
       { label: '設定', click: onOpenSettings },
       { label: 'キャラクター変更', click: onChangeCharacter },
       { label: 'ミュート', type: 'checkbox', checked: getMuted(), click: onToggleMute },

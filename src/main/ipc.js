@@ -55,6 +55,7 @@ export function registerSettingsIpc({ getSettingsWindow }) {
  * Googleアカウント連携用IPC（設定ウィンドウからのみ）。レンダラーへ渡すのは状態（status / エラー種別）だけで、トークンは渡さない。
  * - auth:get-state … 現在の状態
  * - auth:link      … 同意フロー開始（ブラウザを開いた時点で戻る。完了は auth:changed で通知）
+ * - auth:relink    … 連携したまま同意をやり直す（Phase 16。自分で作ったクライアントの連携が 7 日で切れる前に）
  * - auth:cancel / auth:unlink
  * - auth:changed   … 状態が変わるたびに設定ウィンドウへ通知
  * @param {object} opts
@@ -75,6 +76,12 @@ export function registerAuthIpc({ getSettingsWindow, auth }) {
   ipcMain.handle('auth:link', (e) => {
     guard(e);
     auth.link(); // 完了を待たない（link() は reject しない）
+    return auth.getState();
+  });
+
+  ipcMain.handle('auth:relink', (e) => {
+    guard(e);
+    auth.relink(); // 完了を待たない（relink() は reject しない）
     return auth.getState();
   });
 
@@ -174,13 +181,14 @@ export function registerGeminiIpc({ getSettingsWindow, geminiKey }) {
 
 /**
  * 共有版の OAuth Client ID/Secret 用IPC（設定ウィンドウからのみ。2.4・3.6・F-18）。
- * レンダラーへ渡すのは状態（{ edition, userInput, configured, editable }）とエラー種別だけで、Secret も Client ID も戻り値・イベントに載せない（v5.15）。
+ * レンダラーへ渡すのは状態（{ edition, userInput, configured, origin, editable }）とエラー種別だけで、Secret も Client ID も戻り値・イベントに載せない（v5.15）。
+ * origin は「Google 連携」タブのどちらの道で入れたか（'received' 受け取った／'self' 自分で作った。Phase 16）。保存・読み込みの要求に付けて送られる。
  * - oauth:get-state   … 状態
- * - oauth:set         … { clientId, clientSecret } を検証して暗号化保存。{ ok, reason?, ...状態 }（個人版・連携中は拒否）
+ * - oauth:set         … { clientId, clientSecret, origin } を検証して暗号化保存。{ ok, reason?, ...状態 }（個人版・連携中は拒否）
  * - oauth:clear       … 削除（個人版・連携中は拒否）
  * - oauth:open-manual … セットアップ手順書を開く
- * - oauth:import-file … （Phase 12）ファイル選択ダイアログで Console の JSON を選ばせ、メインで読み込んで保存する。{ ok, reason?, canceled?, ...状態 }
- * - oauth:import-path … （Phase 12）設定画面にドロップされた JSON をメインで読み込んで保存する（受け取るのはファイルの場所だけ。中身は画面を通らない）
+ * - oauth:import-file … （Phase 12）ファイル選択ダイアログで Console の JSON を選ばせ、メインで読み込んで保存する。引数は origin。{ ok, reason?, canceled?, ...状態 }
+ * - oauth:import-path … （Phase 12）設定画面にドロップされた JSON をメインで読み込んで保存する（受け取るのはファイルの場所と origin だけ。中身は画面を通らない）
  * - oauth:changed     … 状態が変わるたびに設定ウィンドウへ通知
  * 手順 1〜3 のボタンで Console のページを開くのは links:open（registerLinksIpc）。
  * @param {object} opts
@@ -203,7 +211,7 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
   ipcMain.handle('oauth:set', async (e, input) => {
     guard(e);
     const req = input !== null && typeof input === 'object' ? input : {};
-    const result = await oauthClient.set({ clientId: req.clientId, clientSecret: req.clientSecret });
+    const result = await oauthClient.set({ clientId: req.clientId, clientSecret: req.clientSecret }, { origin: req.origin });
     return { ...result, ...oauthClient.getState() };
   });
 
@@ -218,7 +226,7 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
     return { ok: await openManual() };
   });
 
-  ipcMain.handle('oauth:import-file', async (e) => {
+  ipcMain.handle('oauth:import-file', async (e, origin) => {
     guard(e);
     // 共有版でない・連携中ならダイアログを出さずに理由を返す
     const { userInput, editable } = oauthClient.getState();
@@ -226,13 +234,13 @@ export function registerOAuthClientIpc({ getSettingsWindow, oauthClient, openMan
     if (!editable) return { ok: false, reason: 'linked', ...oauthClient.getState() };
     const filePath = await pickClientFile(getSettingsWindow());
     if (!filePath) return { ok: false, canceled: true, ...oauthClient.getState() };
-    const result = await oauthClient.importFile(filePath);
+    const result = await oauthClient.importFile(filePath, { origin });
     return { ...result, ...oauthClient.getState() };
   });
 
-  ipcMain.handle('oauth:import-path', async (e, filePath) => {
+  ipcMain.handle('oauth:import-path', async (e, filePath, origin) => {
     guard(e);
-    const result = await oauthClient.importFile(typeof filePath === 'string' ? filePath : '');
+    const result = await oauthClient.importFile(typeof filePath === 'string' ? filePath : '', { origin });
     return { ...result, ...oauthClient.getState() };
   });
 

@@ -43,6 +43,7 @@ describe('共有版の設定', () => {
   it('セットアップ手順書（HTML）とライセンスを実行ファイルと同じフォルダに同梱する（zip を展開して目に入る・設定画面の「セットアップ手順を開く」）', () => {
     expect(shared.extraFiles).toEqual([
       { from: 'docs/setup-guide.html', to: 'セットアップ手順書.html' },
+      { from: 'docs/setup-guide-images', to: 'setup-guide-images' },
       { from: 'LICENSE', to: 'LICENSE.txt' },
     ]);
     expect(shared.extraResources ?? []).toEqual([]);

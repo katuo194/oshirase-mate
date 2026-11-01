@@ -11,94 +11,32 @@
   <!-- 設定とキャラクター選択をタブで切り替える（v5.19）。トレイの「設定」「キャラクター変更」はそれぞれのタブで開く -->
   <nav class="tabs" role="tablist" aria-label="画面の切り替え">
     <button id="tab-settings" type="button" role="tab" aria-controls="panel-settings" data-tab="settings" aria-selected="true">設定</button>
+    <!-- Google 連携の準備（Phase 16 で設定タブから分けた）。.env を使う版では出さない（app.js の renderOAuth） -->
+    <button id="tab-google" type="button" role="tab" aria-controls="panel-google" data-tab="google" aria-selected="false" tabindex="-1" hidden>Google 連携</button>
     <button id="tab-character" type="button" role="tab" aria-controls="panel-character" data-tab="character" aria-selected="false" tabindex="-1">キャラクター</button>
   </nav>
 
   <!-- 横に広いときは 2 列（左：Google との連携、右：それ以外。v5.15）、狭いときは 1 列に並べる（v5.19） -->
   <main id="panel-settings" class="panel columns" role="tabpanel" aria-labelledby="tab-settings">
     <div class="col">
-      <!-- Google 連携の準備（利用者が自分の OAuth クライアントを作って読み込む版だけで表示。2.4・3.6・F-18。Phase 12 でウィザードにした）。
-           各手順のボタンはリンクの名前だけをメインへ送り、開くページはメインが決める。Secret も Client ID もこの画面には渡らない -->
-      <section id="oauth-section" hidden>
-        <h2>Google 連携の準備</h2>
-        <p class="hint">自分の Google アカウントで連携用のクライアントを作ります（最初の1回だけ）。ボタンで Google Cloud のページが開きます。</p>
-        <ol class="wizard">
-          <li class="step" id="oauth-step-apis">
-            <div class="step-head">
-              <span class="step-num" aria-hidden="true">1</span>
-              <span class="step-title">プロジェクトを作り、API を有効にする</span>
-              <button type="button" data-link="apis">開く</button>
-            </div>
-            <p class="step-desc">プロジェクトを作成し、3 つの API を有効にします。</p>
-          </li>
-          <li class="step" id="oauth-step-consent">
-            <div class="step-head">
-              <span class="step-num" aria-hidden="true">2</span>
-              <span class="step-title">同意画面を設定して公開する</span>
-            </div>
-            <p class="step-desc">
-              <button type="button" class="inline" data-link="branding">同意画面</button>
-              でアプリ名とメールを入れて作成（対象は「外部」）。
-              <button type="button" class="inline" data-link="audience">対象</button>
-              で「アプリを公開」→ <strong>本番環境</strong>に（テストのままだと 7 日で切れます）。
-            </p>
-          </li>
-          <li class="step" id="oauth-step-client">
-            <div class="step-head">
-              <span class="step-num" aria-hidden="true">3</span>
-              <span class="step-title">クライアントを作り、JSON をダウンロードする</span>
-              <button type="button" data-link="client">開く</button>
-            </div>
-            <p class="step-desc">種類は「デスクトップ アプリ」。<strong>作成直後の画面で「JSON をダウンロード」</strong>（この画面でしか取得できません）。</p>
-          </li>
-          <li class="step" id="oauth-step-import">
-            <div class="step-head">
-              <span class="step-num" aria-hidden="true">4</span>
-              <span class="step-title">ダウンロードした JSON を読み込む</span>
-              <button id="oauth-import" type="button">ファイルを選ぶ</button>
-            </div>
-            <div id="oauth-drop" class="drop-zone">ここに client_secret_〜.json をドラッグ＆ドロップ</div>
-            <p id="oauth-status" class="step-desc">確認中…</p>
-          </li>
-          <li class="step" id="oauth-step-link">
-            <div class="step-head">
-              <span class="step-num" aria-hidden="true">5</span>
-              <span class="step-title">連携する</span>
-              <button id="oauth-link" type="button" disabled>連携する</button>
-            </div>
-            <p class="step-desc">「確認されていません」→「詳細」→「移動」。権限はすべて許可します。</p>
-          </li>
-        </ol>
-        <p id="oauth-detail" class="hint" hidden></p>
-        <div class="oauth-tools">
-          <button id="oauth-manual" type="button">セットアップ手順を開く</button>
-          <button id="oauth-clear" type="button" hidden>読み込んだクライアントを削除</button>
-        </div>
-        <details id="oauth-manual-entry" class="manual-entry">
-          <summary>手動で入力する</summary>
-          <div class="field-row">
-            <label for="oauth-client-id">Client ID</label>
-            <input id="oauth-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="〜.apps.googleusercontent.com" />
-          </div>
-          <div class="field-row">
-            <label for="oauth-client-secret">Client Secret</label>
-            <input id="oauth-client-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Client Secret を貼り付け" />
-            <button id="oauth-save" type="button" disabled>保存</button>
-          </div>
-        </details>
-      </section>
-
       <section>
         <h2>Googleアカウント連携</h2>
         <div class="auth-row">
           <span id="auth-status" class="auth-status">確認中…</span>
           <div class="auth-actions">
             <button id="auth-link" type="button" hidden>連携する</button>
+            <!-- 連携したまま同意をやり直す（Phase 16。自分で作ったクライアントは 7 日で切れるため） -->
+            <button id="auth-relink" type="button" hidden>連携し直す</button>
             <button id="auth-cancel" type="button" hidden>キャンセル</button>
             <button id="auth-unlink" type="button" hidden>連携解除</button>
           </div>
         </div>
         <p id="auth-detail" class="hint" hidden></p>
+        <p id="auth-expiry" class="hint" hidden></p>
+        <!-- 「Google 連携」タブへ（Phase 16）。.env を使う版では出さない -->
+        <div id="google-setup-entry" class="oauth-tools" hidden>
+          <button id="open-google-tab" type="button">連携の準備を開く</button>
+        </div>
       </section>
     </div>
 
@@ -202,6 +140,128 @@
       <section>
         <h2>クレジット</h2>
         <p class="hint">キャラクター画像は EmoteLab（https://emotelab.app/）とその内蔵アセットを使用して作成しています。EmoteLab 本体は本アプリに含まれません。</p>
+      </section>
+    </div>
+  </main>
+
+  <!-- Google 連携の準備（利用者が OAuth クライアントを読み込む版だけで表示。2.4・3.6・F-18）。Phase 12 でウィザードにし、Phase 16 で設定タブから分けて 2 つの道にした：
+         A … 開発者からクライアント（Client ID・Secret）を受け取った人。開発者のプロジェクトは本番環境なので連携は切れない
+         B … 自分でクライアントを作る人。テストモードのまま使う（テストユーザーに自分を追加するだけで済む）ので、連携は 7 日で切れる
+       各手順のボタンはリンクの名前だけをメインへ送り、開くページはメインが決める。Secret も Client ID もこの画面には戻ってこない。
+       横に広いときは A と B を 2 列に並べる -->
+  <main id="panel-google" class="panel columns" role="tabpanel" aria-labelledby="tab-google" hidden>
+    <div class="col">
+      <section id="oauth-section">
+        <h2>Google 連携の準備</h2>
+        <p class="hint">予定・TODO・メールを読むための準備です（最初の1回だけ）。開発者からクライアントを受け取った人は A を、自分で作る人は B を行います。</p>
+        <div class="auth-row">
+          <span>クライアント：<span id="oauth-status" class="auth-status">確認中…</span></span>
+          <div class="auth-actions">
+            <button id="oauth-manual" type="button">セットアップ手順を開く</button>
+            <button id="oauth-clear" type="button" hidden>読み込んだクライアントを削除</button>
+          </div>
+        </div>
+        <p id="oauth-detail" class="hint" hidden></p>
+      </section>
+
+      <section id="oauth-path-received">
+        <h2>A. クライアントを受け取った人</h2>
+        <ol class="wizard">
+          <li class="step" id="oauth-step-paste">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">1</span>
+              <span class="step-title">受け取った Client ID と Client Secret を貼り付ける</span>
+            </div>
+            <div class="field-row step-field">
+              <label for="oauth-client-id">Client ID</label>
+              <input id="oauth-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="〜.apps.googleusercontent.com" />
+            </div>
+            <div class="field-row step-field">
+              <label for="oauth-client-secret">Client Secret</label>
+              <input id="oauth-client-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Client Secret を貼り付け" />
+              <button id="oauth-save" type="button" disabled>保存</button>
+            </div>
+            <p class="step-desc">
+              JSON ファイル（client_secret_〜.json）で受け取ったときは
+              <button type="button" class="inline" data-oauth-import="received">ファイルを選ぶ</button>
+              で読み込みます。
+            </p>
+          </li>
+          <li class="step" data-oauth-step="link">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">2</span>
+              <span class="step-title">連携する</span>
+              <button type="button" data-oauth-link disabled>連携する</button>
+            </div>
+            <p class="step-desc">
+              ブラウザで Google アカウントを選び、「このアプリは Google で確認されていません」と出たら「詳細」→「おしらせメイト（安全ではないページ）に移動」。
+              権限のチェックはすべて入れて「続行」します。
+            </p>
+          </li>
+        </ol>
+      </section>
+    </div>
+
+    <div class="col">
+      <section id="oauth-path-self">
+        <h2>B. 自分でクライアントを作る（30 分ほど）</h2>
+        <p class="hint">
+          自分の Google アカウントで Google Cloud のプロジェクトとクライアントを作ります。ボタンで Google Cloud のページが開きます。
+          この方法では連携が <strong>7 日で切れます</strong>（切れる前にマスコットがお知らせするので、設定タブの「連携し直す」を押します）。
+        </p>
+        <ol class="wizard">
+          <li class="step">
+            <div class="step-head">
+              <span class="step-num wide" aria-hidden="true">1-a</span>
+              <span class="step-title">プロジェクトを作る</span>
+              <button type="button" data-link="projectCreate">開く</button>
+            </div>
+            <p class="step-desc">プロジェクト名（例：oshirase-mate）を入れて「作成」。「ようこそ」の画面になったら、次の手順へ進みます。</p>
+          </li>
+          <li class="step">
+            <div class="step-head">
+              <span class="step-num wide" aria-hidden="true">1-b</span>
+              <span class="step-title">3 つの API を有効にする</span>
+              <button type="button" data-link="apis">開く</button>
+            </div>
+            <p class="step-desc">上に 1-a で作ったプロジェクト名が出ていることを確かめ、「次へ」→「有効にする」。</p>
+          </li>
+          <li class="step">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">2</span>
+              <span class="step-title">Google Auth Platform を設定する</span>
+              <button type="button" data-link="branding">開く</button>
+            </div>
+            <p class="step-desc">
+              「開始」を押し、アプリ情報（アプリ名と自分のメール）→ 対象は「外部」→ 連絡先情報（自分のメール）→ 終了（ポリシーに同意して「続行」）→「作成」。
+              続けて <button type="button" class="inline" data-link="audience">対象</button> の「テストユーザー」で「Add users」を押し、自分のメールアドレスを入れて「保存」。
+            </p>
+          </li>
+          <li class="step">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">3</span>
+              <span class="step-title">クライアントを作り、JSON をダウンロードする</span>
+              <button type="button" data-link="client">開く</button>
+            </div>
+            <p class="step-desc">種類は「デスクトップ アプリ」。<strong>作成直後の画面で「JSON をダウンロード」</strong>（この画面でしか取得できません）。</p>
+          </li>
+          <li class="step" id="oauth-step-import">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">4</span>
+              <span class="step-title">ダウンロードした JSON を読み込む</span>
+              <button type="button" data-oauth-import="self">ファイルを選ぶ</button>
+            </div>
+            <div id="oauth-drop" class="drop-zone">ここに client_secret_〜.json をドラッグ＆ドロップ</div>
+          </li>
+          <li class="step" data-oauth-step="link">
+            <div class="step-head">
+              <span class="step-num" aria-hidden="true">5</span>
+              <span class="step-title">連携する</span>
+              <button type="button" data-oauth-link disabled>連携する</button>
+            </div>
+            <p class="step-desc">「確認されていません」→「詳細」→「（安全ではないページ）に移動」。権限はすべて許可します。</p>
+          </li>
+        </ol>
       </section>
     </div>
   </main>

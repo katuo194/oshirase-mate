@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { EXTERNAL_LINKS } from '../src/main/externalLinks.js';
 
 // 利用者向けの文書・画面の文言（Phase 12・v5.15）。利用者に配るのは共有版だけなので、版の名前や開発の話を見せない。
 // 開発者向けの内容は docs/development.md に置く。
@@ -36,5 +37,26 @@ describe('利用者向けの文書・画面', () => {
       expect(html).not.toContain(word);
       expect(js).not.toContain(word);
     }
+  });
+
+  it('手順書が参照する画面の写真（Phase 16）はすべて docs/setup-guide-images/ にあり、使っていない写真も無い', () => {
+    const guide = read('docs/setup-guide.html');
+    const used = [...new Set(guide.match(/setup-guide-images\/[\w.-]+/g) ?? [])].map((p) => p.replace('setup-guide-images/', '')).sort();
+    expect(used.length).toBeGreaterThan(0);
+    const files = fs.readdirSync(new URL('../docs/setup-guide-images/', import.meta.url)).sort();
+    expect(files).toEqual(used);
+  });
+
+  it('手順書の中のリンク（#見出し）の行き先がすべてある', () => {
+    const guide = read('docs/setup-guide.html');
+    const ids = new Set([...guide.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+    for (const [, target] of guide.matchAll(/href="#([^"]+)"/g)) expect(ids.has(target), target).toBe(true);
+  });
+
+  it('「Google 連携」タブのボタンで開くページは、すべて externalLinks の表にある（Phase 16）', () => {
+    const html = read('src/renderer/settings/index.html');
+    const names = [...html.matchAll(/data-link="([^"]+)"/g)].map((m) => m[1]);
+    for (const name of ['projectCreate', 'apis', 'branding', 'audience', 'client']) expect(names).toContain(name);
+    for (const name of names) expect(Object.hasOwn(EXTERNAL_LINKS, name), name).toBe(true);
   });
 });

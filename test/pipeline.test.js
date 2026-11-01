@@ -22,15 +22,15 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** 実 auth の代わり。status を動かして 'change' を流せる。 */
-function fakeAuth(status = 'linked') {
+/** 実 auth の代わり。status（と lastError など）を動かして 'change' を流せる。 */
+function fakeAuth(status = 'linked', extra = {}) {
   const events = new EventEmitter();
-  let state = { status };
+  let state = { status, ...extra };
   return {
     events,
     getState: () => ({ ...state }),
-    set(next) {
-      state = { status: next };
+    set(next, more = {}) {
+      state = { status: next, ...more };
       events.emit('change', { ...state });
     },
   };
@@ -51,10 +51,10 @@ function memoryStore(initial = {}) {
 }
 
 /** カレンダー・TODO・Gmail のフェイクAPI（mocks/google）を、実 providers・実 notifyQueue・実 reminderTimers につないだ状態を作る。 */
-function setup({ status = 'linked', api = createFakeGoogleApi(), store = memoryStore(), polling = POLLING, usage, withTasks = false } = {}) {
+function setup({ status = 'linked', authExtra = {}, api = createFakeGoogleApi(), store = memoryStore(), polling = POLLING, usage, withTasks = false } = {}) {
   const logs = [];
   const log = { info: (m) => logs.push(m), warn: (m) => logs.push(`WARN ${m}`) };
-  const auth = fakeAuth(status);
+  const auth = fakeAuth(status, authExtra);
   const gmail = createGmailProvider({ listMessages: api.listMessages, getMessage: api.getMessage, log });
   const providers = {
     calendar: createCalendarProvider({ listEvents: api.listEvents }),
@@ -460,6 +460,52 @@ describe('pipeline / 連携が外れたときの後始末', () => {
     ctx.auth.set('checking');
     ctx.auth.set('unlinked');
     expect(ctx.pipeline.reminderTimers.size()).toBe(0);
+  });
+
+  it('連携が切れた（invalid_grant）ときは、連携し直したあとに、切れていた間に届いた重要メールを通知する（Phase 16）', async () => {
+    const ctx = setup();
+    await ctx.pipeline.start();
+    await settle(); // 初回取得（既存の未読は通知済み扱い）
+    await vi.advanceTimersByTimeAsync(MIN); // 2 回目の取得（ここが拾う起点になる）
+
+    ctx.auth.set('checking');
+    ctx.auth.set('unlinked', { lastError: 'expired' });
+    await vi.advanceTimersByTimeAsync(30 * MIN);
+    ctx.api.addImportantMessage('gap-1', { subject: '切れていた間の1通目' });
+    await vi.advanceTimersByTimeAsync(MIN);
+    ctx.api.addImportantMessage('gap-2', { subject: '切れていた間の2通目' });
+
+    ctx.auth.set('linked');
+    await settle();
+    expect(ctx.enqueued.map((n) => n.title)).toEqual(['切れていた間の1通目', '切れていた間の2通目']);
+    expect(ctx.logs.some((l) => l.includes('連携が切れていた間に届いた 2 件を通知'))).toBe(true);
+
+    // 次からは通常どおり
+    await vi.advanceTimersByTimeAsync(MIN);
+    expect(ctx.enqueued).toHaveLength(2);
+  });
+
+  it('自分で連携解除したときは拾わない（7.1 のとおり、再連携後は既存の未読を通知済み扱い）', async () => {
+    const ctx = setup();
+    await ctx.pipeline.start();
+    await settle();
+    ctx.auth.set('unlinked', { lastError: null });
+    ctx.api.addImportantMessage('while-unlinked', { subject: '解除中に届いた' });
+    ctx.auth.set('linked');
+    await settle();
+    expect(ctx.enqueued).toEqual([]);
+  });
+
+  it('起動時の確認で切れていた（作ったときに未連携・expired）場合は、起動した時刻より後に届いた分を拾う', async () => {
+    const ctx = setup({ status: 'unlinked', authExtra: { lastError: 'expired' } });
+    ctx.api.addImportantMessage('before-start', { subject: '起動前に届いた', at: NOW - MIN });
+    await ctx.pipeline.start();
+    await settle();
+    await vi.advanceTimersByTimeAsync(10 * MIN);
+    ctx.api.addImportantMessage('after-start', { subject: '起動後に届いた' });
+    ctx.auth.set('linked');
+    await settle();
+    expect(ctx.enqueued.map((n) => n.title)).toEqual(['起動後に届いた']);
   });
 
   it('ポーリング中に連携解除されたら、その結果は捨てる（解除後にタイマーが復活しない）', async () => {

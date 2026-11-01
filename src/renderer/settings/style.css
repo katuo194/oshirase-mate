@@ -298,6 +298,18 @@ h2 {
   justify-content: center;
 }
 
+/* 「1-a」「1-b」（Phase 16）は丸に入らないので横長にする */
+.step-num.wide {
+  width: auto;
+  padding: 0 6px;
+  border-radius: 11px;
+}
+
+/* 手順の中の入力欄（「Google 連携」タブの A の手順 1。Phase 16）は説明の行と左をそろえる */
+.field-row.step-field {
+  margin: 6px 0 0 30px;
+}
+
 /* 済んだ手順は番号の代わりに ✓ */
 .step.done .step-num {
   background: #1a7f37;
@@ -365,15 +377,6 @@ h2 {
   margin: 8px 0;
 }
 
-.manual-entry {
-  margin: 8px 0;
-}
-
-.manual-entry summary {
-  cursor: pointer;
-  font-size: 12px;
-  color: #555555;
-}
 
 /* ---- キャラクター（F-17・3.6。v5.19 で別のウィンドウからタブへ移した）---- */
 .character-panel {

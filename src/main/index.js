@@ -47,6 +47,7 @@ import { createAuth } from './auth.js';
 import { oauthSourceFor } from './edition.js';
 import { createOAuthClientStorage } from './oauthClientStorage.js';
 import { createOAuthClient } from './oauthClient.js';
+import { createLinkExpiryWatch } from './linkExpiry.js';
 import { createTokenStorage } from './tokenStorage.js';
 import { startLoopbackServer } from './loopback.js';
 import { createLogger } from './logger.js';
@@ -94,6 +95,8 @@ let auth = null;
 let pipeline = null;
 let notificationLogger = null;
 let presenter = null;
+/** Google 連携が切れた・切れそうなときのお知らせと右クリックメニュー（linkExpiry.js。Phase 16） */
+let linkExpiry = null;
 /** マスコットウィンドウのコントローラー（window.js）。演出・バッジ・効果音設定の送り先 */
 let mascot = null;
 /** --dev のときだけ startPipeline が埋める開発用メニュー項目（トレイと右クリックメニューに出る） */
@@ -166,6 +169,11 @@ async function probeInternet() {
 const OFFLINE_MESSAGE = { title: 'インターネットにつながらないみたい', sub: '接続を確認してね。つながったら自動で再開するよ' };
 /** ダブルクリックしたが、まだ通知を表示していない（F-21） */
 const NO_REPLAY_MESSAGE = { title: 'まだお知らせはないよ', sub: 'お知らせしたあとにダブルクリックすると、もう一度言うよ' };
+/** Google 連携の期限が近い（自分で作ったクライアントはテストモードのため 7 日で切れる）・切れた（Phase 16。linkExpiry.js） */
+const LINK_EXPIRY_MESSAGES = {
+  expiring: { title: 'Google との連携がもうすぐ切れるよ', sub: '右クリックの「Google と連携し直す」から、連携し直してね' },
+  expired: { title: 'Google との連携が切れちゃった', sub: '右クリックの「Google と連携し直す」から、もう一度連携してね' },
+};
 
 /** 音まわりの設定をマスコットへ（ミュート・効果音／ボイス音量） */
 function applyMascotSettings(settings = getSettings()) {
@@ -183,6 +191,7 @@ app.on('will-quit', () => {
   pipeline?.stop();
   idleTalk?.stop();
   presenter?.stop();
+  linkExpiry?.dispose();
   notificationLogger?.stop();
   auth?.dispose();
   tray?.destroy();
@@ -278,7 +287,7 @@ if (!app.requestSingleInstanceLock()) {
         });
         return true;
       },
-      // 「Google 連携の準備」の手順 4：Console からダウンロードした JSON を選ぶ（Phase 12）
+      // 「Google 連携」タブの「ファイルを選ぶ」：Console からダウンロードした（または受け取った）JSON を選ぶ（Phase 12・16）
       pickClientFile: async (win) => {
         const r = await dialog.showOpenDialog(win, {
           title: 'ダウンロードした OAuth クライアントの JSON を選択',
@@ -466,6 +475,12 @@ if (!app.requestSingleInstanceLock()) {
       },
       onTalk: openChat,
       isTalkEnabled: () => geminiKey.isConfigured(),
+      // 連携が切れた・切れそうなとき（Phase 16）。連携する・連携し直すボタンと期限の表示がある設定タブを開く
+      isRelinkNeeded: () => linkExpiry?.needsRelink() ?? false,
+      onRelink: () => {
+        idleTalk?.touch();
+        openSettingsWindow({ tab: 'settings' });
+      },
       getMuted: () => getSettings().muted,
       onToggleMute: () => updateSettings({ muted: !getSettings().muted }),
       getNotifyOnly: () => getSettings().displayMode === 'notifyOnly',
@@ -518,7 +533,7 @@ if (!app.requestSingleInstanceLock()) {
     void oauthClient.init().then(() => auth.init());
 
     // 通知パイプライン（Phase 4）。Google API クライアントの読み込みを待たないよう、マスコット表示の後にバックグラウンドで行う
-    void startPipeline({ auth, log, refreshTrayMenu: () => tray?.refreshMenu() }).catch((e) =>
+    void startPipeline({ auth, oauthClient, log, refreshTrayMenu: () => tray?.refreshMenu() }).catch((e) =>
       log.warn(`[app] 通知パイプラインの開始に失敗: ${e?.message ?? e}`),
     );
   });
@@ -567,7 +582,7 @@ async function applyCharacter(log) {
  * どのイベントで何を呼ぶか（orchestration）は pipeline.js（依存注入・ユニットテスト済み）にある。
  * 認証は auth.getAccessToken() の有効なアクセストークンのみを都度渡す（googleapis の OAuth2Client は使わない。googleApi.js 参照）。
  */
-async function startPipeline({ auth, log, refreshTrayMenu }) {
+async function startPipeline({ auth, oauthClient, log, refreshTrayMenu }) {
   // googleapis 全体は全API（300超）の定義を読み込み、メインのメモリが約100MB増える（9章#7）。使う3つだけを個別パッケージで読む
   const loadStart = Date.now();
   const [{ calendar }, { tasks }, { gmail }] = await Promise.all([
@@ -698,6 +713,17 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
   const isOffline = () => devOffline || (pipeline?.scheduler.isOffline() ?? false);
   const showOfflineMessage = () => presenter.showSystem(systemPresentation({ id: `system:offline:${Date.now()}`, ...OFFLINE_MESSAGE }));
 
+  // Google 連携が切れた・切れそうなとき（Phase 16）。マスコットで知らせ、右クリックメニューに「Google と連携し直す…」を出す
+  const showLinkExpiry = (kind) => presenter.showSystem(systemPresentation({ id: `system:link-${kind}:${Date.now()}`, ...LINK_EXPIRY_MESSAGES[kind] }));
+  linkExpiry = createLinkExpiryWatch({
+    auth,
+    getOrigin: () => oauthClient.getOrigin(),
+    notify: showLinkExpiry,
+    onChange: refreshTrayMenu,
+    log,
+  });
+  oauthClient.events.on('change', () => linkExpiry.refresh());
+
   const pushSummary = () => mascot.setSummary(formatBadgeText(mailSummary.get()));
   mailSummary.events.on('updated', pushSummary);
   mailSummary.events.on('reset', pushSummary);
@@ -750,6 +776,9 @@ async function startPipeline({ auth, log, refreshTrayMenu }) {
         },
       },
       { label: 'VOICEVOX 接続状態を再確認', click: () => void voicevox.checkStatus(effectiveVoiceConfig()).catch(() => {}) },
+      // 見た目の確認用（連携の状態・右クリックメニューは変わらない）
+      { label: 'Google 連携の期限の予告', click: () => showLinkExpiry('expiring') },
+      { label: 'Google 連携切れ', click: () => showLinkExpiry('expired') },
       { type: 'separator' },
       // 間隔・静粛時間帯を無視して今すぐ表示（通知表示中などで受理されなければ何も起きない）
       { label: 'アイドルトーク（通常）', click: () => idleTalk.fireNow('normal') },

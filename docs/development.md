@@ -22,7 +22,7 @@ npm run dev
 
 | | 個人版（開発者用） | 共有版（配布するもの） |
 |---|---|---|
-| OAuth Client ID/Secret | `.env`（開発者のもの） | 利用者が自分で作成し、設定画面の「Google 連携の準備」で JSON を読み込む（または手入力。暗号化して保存） |
+| OAuth Client ID/Secret | `.env`（開発者のもの） | 設定画面の「Google 連携」タブで読み込む（暗号化して保存）。A：開発者が一人ずつ発行したものを貼り付ける（下の「クライアントを一人ずつ発行する」）／B：利用者が自分で作った JSON を読み込む |
 | 配布 | 開発者本人のみ | GitHub Releases に zip ＋[セットアップ手順書（HTML）](setup-guide.html) |
 | ソースからの起動 | `.env` に Client ID と Secret が入っているとき | `.env` が無い・空のとき（GitHub から取得したソースをそのまま起動したとき） |
 | userData | `%APPDATA%\my-mascot-app` | `%APPDATA%\おしらせメイト` |
@@ -31,7 +31,7 @@ npm run dev
 
 版は「`config.json` に保存された `edition`」→「ビルド時の既定値（配布パッケージの `package.json` の `mascotEdition`）」→「プロジェクト直下の `.env` に Client ID と Secret が両方入っていれば個人版、無ければ共有版」の順で決まります（要件定義書 2.5）。
 
-GitHub から取得したソースを `.env` なしで `npm start` すると共有版として起動し、配布版の zip と同じく設定画面の「Google 連携の準備」で自分のクライアントの JSON を読み込めば連携できます。保存先も配布版と同じ `%APPDATA%\おしらせメイト` なので、配布版を起動している間は起動できません（二重起動として、起動中の配布版の設定画面が開きます）。`.env` の無い作業用の複製（`.claude/worktrees/` など）から起動するときも同じです。配布版のデータと分けたいときは、下の「共有版の動作確認」のように `--user-data-dir` を付けて起動してください。
+GitHub から取得したソースを `.env` なしで `npm start` すると共有版として起動し、配布版の zip と同じく設定画面の「Google 連携」タブでクライアントを読み込めば連携できます。保存先も配布版と同じ `%APPDATA%\おしらせメイト` なので、配布版を起動している間は起動できません（二重起動として、起動中の配布版の設定画面が開きます）。`.env` の無い作業用の複製（`.claude/worktrees/` など）から起動するときも同じです。配布版のデータと分けたいときは、下の「共有版の動作確認」のように `--user-data-dir` を付けて起動してください。
 
 ### 個人版の `.env`
 
@@ -49,7 +49,32 @@ npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 �
 
 `--user-data-dir` を明示したときだけ、普段の保存先の固定（`src/main/pinUserDataDir.js`）をしません（要件定義書 2.5）。起動ログの先頭が「起動（共有版）」になっていれば共有版です（ログは `$env:TEMP\mascot-shared\logs\`）。保存先が別なので、個人版を起動したままでも同時に起動できます。
 
-設定画面のボタンで開く外部のページ（「Google 連携の準備」の手順 1〜3 の Console・VOICEVOX・Gemini API キー）は `src/main/externalLinks.js` の表、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL が変わったら、この表と手順書を直してください。
+設定画面のボタンで開く外部のページ（「Google 連携」タブの B の手順 1-a〜3 の Console・VOICEVOX・Gemini API キー）は `src/main/externalLinks.js` の表、JSON の解析は `src/main/oauthClientFile.js` にあります。Console の URL・画面が変わったら、この表と手順書（`docs/setup-guide.html` と写真の `docs/setup-guide-images/`）を直してください。写真を撮り直すときは、メールアドレス・プロジェクトの ID と番号・右上のアカウントのアイコンを隠してください。
+
+`--dev` で起動すると、右クリックメニューの「[開発] テスト通知」に「Google 連携の期限の予告」「Google 連携切れ」が加わり、連携の期限のお知らせの見た目を確かめられます（連携の状態や右クリックメニューは変わりません）。
+
+### クライアントを一人ずつ発行する（知人に配る）
+
+開発者のクライアントはアプリに入れず、配布専用の Google Cloud プロジェクトにクライアントを **一人に 1 つずつ** 作って渡します（要件定義書 2.4・付録 A-34）。漏れたら、その人のクライアントだけを削除できます。
+
+**最初に一度だけ（配布専用のプロジェクト）**
+
+1. 手順書の 2-B の手順 1-a〜2 と同じように、プロジェクトを作り、3 つの API を有効にし、Google Auth Platform を設定する（対象は「外部」）。
+2. 「ブランディング」で、アプリのホームページとプライバシーポリシーの URL を入れる（本番環境に公開するのに必要）。
+3. 「対象」で「アプリを公開」を押して **本番環境** にする（テストのままだと、受け取った人の連携も 7 日で切れる）。審査は受けない。
+
+**一人ごとに**
+
+1. 「クライアント」→「クライアントを作成」で、種類「デスクトップ アプリ」、名前は誰に渡したか分かるもの（例：`friend-<名前>`）にして作る。
+2. 作成直後の画面で Client ID と Client Secret をコピーする（または JSON をダウンロードする。Secret はこの画面でしか見られない）。
+3. 2 つの値を、1 回だけ開ける URL（One-Time Secret など）で渡す。チャットやメールに直接貼らない。誰にどのクライアントを渡したかは、リポジトリの外に控えておく。
+4. 受け取った人は「Google 連携」タブの A に貼り付けて「保存」→「連携する」。
+
+**運用**
+
+- **漏れた・使わなくなった**：その人のクライアントを Console で削除する（その人の連携は切れ、「クライアントが Google に受け付けられませんでした」と出る）。クライアントを削除・Secret を差し替えると、その人は値を受け取り直す必要がある。
+- **人数の上限**：審査を受けていないプロジェクトは、許可したユーザーが**累計 100 人**まで（テストユーザーも含む。減らせない）。「対象」の「OAuth ユーザー数の上限」で数を見張る。上限に近づいたら、審査（`gmail.readonly` は制限付きのスコープなので、毎年のセキュリティ評価〔CASA〕が要る）か、自分で作る道（B）への切り替えを検討する。
+- **クライアントの数**：1 つのプロジェクトで作れるクライアントの数には上限があることがある。最初の数人分を作るときに Console で確かめる。
 
 設定画面の「ショートカット」欄は、ソースから起動しているときも使えます。作られるのは `おしらせメイト（開発）.lnk`（Electron 本体に、アプリのフォルダと、起動時に指定した `--user-data-dir` を渡すもの）で、配布版の `おしらせメイト.lnk` とは別です。上の手順で起動してから作れば、そのショートカットからも同じ保存先の共有版で起動できます。
 
@@ -99,7 +124,7 @@ assets/characters/bundled-boy/
 npm run dist:shared
 ```
 
-共有版を `dist/shared/oshirase-mate-shared-<version>-win-x64.zip` に作ります。`.env` は含めず（ビルド後に `scripts/check-dist.mjs` が確認します）、セットアップ手順書（`docs/setup-guide.html` を `セットアップ手順書.html` という名前で）と `LICENSE.txt` を実行ファイルと同じフォルダに同梱します。同梱キャラクターの画像・固定ボイスは `assets/` ごと app.asar に入ります（素材がそろっていなければ `check-dist` が止めます）。Chromium の言語ファイル（`locales/`）は日本語と英語だけを入れます（`build/electron-builder.base.cjs` の `electronLanguages`。`check-dist` が確かめます）。
+共有版を `dist/shared/oshirase-mate-shared-<version>-win-x64.zip` に作ります。`.env` は含めず（ビルド後に `scripts/check-dist.mjs` が確認します）、セットアップ手順書（`docs/setup-guide.html` を `セットアップ手順書.html` という名前で）とその写真（`docs/setup-guide-images/` を `setup-guide-images/` として）と `LICENSE.txt` を実行ファイルと同じフォルダに同梱します。同梱キャラクターの画像・固定ボイスは `assets/` ごと app.asar に入ります（素材がそろっていなければ `check-dist` が止めます）。Chromium の言語ファイル（`locales/`）は日本語と英語だけを入れます（`build/electron-builder.base.cjs` の `electronLanguages`。`check-dist` が確かめます）。
 
 ソースを変えたら、配布する前に必ずビルドし直してください（`dist/` の zip はビルドした時点のソースのままです）。
 
