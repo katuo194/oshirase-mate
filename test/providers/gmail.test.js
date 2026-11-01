@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOW, createFakeGoogleApi, fixtures } from '../../mocks/google/index.js';
 import {
+  CATCH_UP_MAX,
   QUERY_IMPORTANT,
   QUERY_OTHER,
+  catchUpQuery,
   createGmailProvider,
   displayNameOf,
   headerOf,
@@ -213,5 +215,46 @@ describe('providers/gmail / 重要でないメールの未読件数（ID を数�
       log: silent,
     });
     await expect(flaky.pollUnreadOtherCount()).rejects.toThrow('boom');
+  });
+});
+
+describe('providers/gmail / 連携が切れていた間の分を拾う（Phase 16）', () => {
+  it('catchUpQuery は重要な未読のうち、指定した時刻（秒に切り捨て）より後に届いたもの', () => {
+    expect(catchUpQuery(1_700_000_000_999)).toBe(`${QUERY_IMPORTANT} after:1700000000`);
+  });
+
+  it('catchUp のあとの初回取得では、その時刻より後に届いたものを古い順に通知し、ほかの未読は通知済み扱いにする', async () => {
+    const { api, provider } = setup();
+    api.addImportantMessage('gap-1', { subject: '1通目', at: NOW + 1000 });
+    api.addImportantMessage('gap-2', { subject: '2通目', at: NOW + 2000 });
+    provider.catchUp(NOW);
+    const res = await provider.pollImportant();
+    expect(res.seeded).toBe(true);
+    expect(res.caughtUp).toBe(2);
+    expect(res.notifications.map((n) => n.title)).toEqual(['1通目', '2通目']);
+    expect(api.callsTo('listMessages').map((c) => c.args)).toContainEqual({ q: catchUpQuery(NOW), maxResults: CATCH_UP_MAX, pageToken: undefined });
+    // 次からは通常どおり（拾ったものも既存の未読も、二度と通知しない）
+    expect((await provider.pollImportant()).notifications).toEqual([]);
+  });
+
+  it(`多すぎるときは新しい方から ${CATCH_UP_MAX} 件だけ`, async () => {
+    const { provider, api } = setup();
+    for (let i = 1; i <= CATCH_UP_MAX + 3; i++) api.addImportantMessage(`gap-${i}`, { subject: `${i}通目`, at: NOW + i * 1000 });
+    provider.catchUp(NOW);
+    const res = await provider.pollImportant();
+    expect(res.notifications).toHaveLength(CATCH_UP_MAX);
+    expect(res.notifications[0].title).toBe('4通目');
+    expect(res.notifications.at(-1).title).toBe(`${CATCH_UP_MAX + 3}通目`);
+    expect((await provider.pollImportant()).notifications).toEqual([]);
+  });
+
+  it('拾うのは一度だけ。reset したら拾う予定も消える', async () => {
+    const { provider, api } = setup();
+    api.addImportantMessage('gap-1', { at: NOW + 1000 });
+    provider.catchUp(NOW);
+    provider.reset();
+    expect(await provider.pollImportant()).toEqual({ notifications: [], seeded: true });
+    provider.catchUp(NOW);
+    expect((await provider.pollImportant()).notifications).toEqual([]); // 初回取得は済んでいるので使われない
   });
 });

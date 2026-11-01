@@ -4,8 +4,8 @@
 //   1. config.json に実際に保存された edition（'personal' / 'shared'。開発・検証時に直接編集したときだけ存在する）
 //   2. ビルド時の既定値（配布パッケージの package.json の mascotEdition。electron-builder の extraMetadata で埋め込む）
 //   3. ソースから起動していて、プロジェクト直下の .env に Client ID と Secret が両方入っていれば 'personal'
-//   4. それ以外（GitHub から取得したソースを .env なしで起動したとき）は 'shared'。設定画面の「Google 連携の準備」で
-//      自分のクライアントを読み込めば連携できる（配布版の zip と同じ）
+//   4. それ以外（GitHub から取得したソースを .env なしで起動したとき）は 'shared'。設定画面の「Google 連携」タブで
+//      クライアントを読み込めば連携できる（配布版の zip と同じ）
 // 「保存されている」かは、スキーマや electron-store の既定値で埋まった値ではなく、本当に書かれた値で判定する。
 // そのため settingsSchema.js・store.js の既定値に edition を加えてはいけない（加えるとビルド時の値が常に上書きされる）。
 // アプリから edition を書き込む経路も持たない。

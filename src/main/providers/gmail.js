@@ -21,6 +21,15 @@ export const QUERY_OTHER = 'is:unread -is:important';
 export const UNREAD_COUNT_PAGE_SIZE = 500;
 export const UNREAD_COUNT_MAX_PAGES = 5;
 
+/**
+ * 連携が切れていた間に届いた重要メールを、連携し直したあとに拾う件数の上限（Phase 16）。
+ * これより多ければ新しい方からこの件数だけ通知し、残りは通知済み扱いにする（一度に大量に流さない）。
+ */
+export const CATCH_UP_MAX = 10;
+
+/** 指定した時刻より後に届いた重要な未読メールの検索条件（Gmail の after: はエポック秒を受け付ける） */
+export const catchUpQuery = (sinceMs) => `${QUERY_IMPORTANT} after:${Math.floor(sinceMs / 1000)}`;
+
 /** messages.list は0件のとき messages キー自体を返さない。 */
 export function messageIdsOf(response) {
   return (response?.messages ?? []).map((m) => m.id).filter((id) => typeof id === 'string');
@@ -76,22 +85,45 @@ export function normalizeImportantMessage(message, { now }) {
 export function createGmailProvider({ listMessages, getMessage, now = Date.now, log = console }) {
   /** 前回のポーリングで見えていた重要メールのID。null は「まだ一度も取得していない」 */
   let knownImportantIds = null;
+  /** 次の初回取得で、この時刻より後に届いた重要メールを通知する（連携が切れていた間の分。Phase 16）。null なら通常の初回取得 */
+  let catchUpSince = null;
+
+  /** 初回取得（7.1）。catchUpSince があれば、その時刻より後に届いた分（上限 CATCH_UP_MAX 件）だけは通知する */
+  async function seed(ids) {
+    const since = catchUpSince;
+    catchUpSince = null;
+    knownImportantIds = new Set(ids);
+    if (since === null) return { notifications: [], seeded: true };
+
+    // 新しい順に返るので、先頭から上限まで。キューには古い方から積む
+    const recentIds = messageIdsOf(await listMessages({ q: catchUpQuery(since), maxResults: CATCH_UP_MAX }))
+      .slice(0, CATCH_UP_MAX)
+      .reverse();
+    const notifications = [];
+    for (const id of recentIds) {
+      try {
+        notifications.push(normalizeImportantMessage(await getMessage(id), { now: now() }));
+      } catch (e) {
+        // 拾い直しはしない（既知に入れたまま）。切れていた間の分は取りこぼしても、通常の通知には影響しない
+        log.warn(`[gmail] failed to fetch message metadata: ${e?.message ?? e}`);
+      }
+    }
+    return { notifications, seeded: true, caughtUp: notifications.length };
+  }
 
   return {
     /**
      * 重要メールの新着を個別通知にする。
      * 初回ポーリングでは既存の未読をすべて通知済み扱いにし、通知を出さない（7.1）。
      * 起動のたびに溜まった未読が一斉に流れ出すのを防ぐため。
+     * ただし catchUp で時刻を渡されていれば（連携が切れていた間の分。Phase 16）、その時刻より後に届いたものは通知する。
      *
-     * @returns {Promise<{ notifications: object[], seeded: boolean }>}
+     * @returns {Promise<{ notifications: object[], seeded: boolean, caughtUp?: number }>}
      */
     async pollImportant() {
       const ids = messageIdsOf(await listMessages({ q: QUERY_IMPORTANT }));
 
-      if (knownImportantIds === null) {
-        knownImportantIds = new Set(ids);
-        return { notifications: [], seeded: true };
-      }
+      if (knownImportantIds === null) return seed(ids);
 
       // Gmail は新しい順に返すので、キューには古い方から積む（届いた順に読めるように）
       const newIds = ids.filter((id) => !knownImportantIds.has(id)).reverse();
@@ -130,9 +162,18 @@ export function createGmailProvider({ listMessages, getMessage, now = Date.now, 
       return { count, capped: true };
     },
 
-    /** テスト・再連携時に初回状態へ戻す。 */
+    /** テスト・再連携時に初回状態へ戻す（連携が切れていた間の分を拾う予定も消す）。 */
     reset() {
       knownImportantIds = null;
+      catchUpSince = null;
+    },
+
+    /**
+     * 連携が切れたとき（Phase 16）。次の初回取得で、sinceMs より後に届いた重要メールを通知する（reset のあとに呼ぶ）。
+     * @param {number} sinceMs 最後に重要メールを取得できた時刻（無ければ切れたことに気づいた時刻）
+     */
+    catchUp(sinceMs) {
+      if (Number.isFinite(sinceMs)) catchUpSince = sinceMs;
     },
   };
 }

@@ -11,7 +11,9 @@ import { UnreadableContentError, decryptOrThrow, parseJsonOrThrow, quarantineUnr
 const isNonEmptyString = (v) => typeof v === 'string' && v !== '';
 
 /**
- * @typedef {{ refresh_token: string, scope: string, token_type: string }} StoredCredentials
+ * linked_at（Phase 16）は同意した時刻（ミリ秒）。自分で作ったクライアント（テストモード）の連携が 7 日で切れるのを予告するために使う。
+ * それより前に保存したファイルには無い（load の結果にも付かない）。
+ * @typedef {{ refresh_token: string, scope: string, token_type: string, linked_at?: number }} StoredCredentials
  * @param {object} opts
  * @param {string} opts.filePath tokens.enc のパス（userData 配下）
  * @param {{ isEncryptionAvailable(): boolean, encryptString(s: string): Buffer, decryptString(b: Buffer): string }} opts.safeStorage
@@ -35,6 +37,7 @@ export function createTokenStorage({ filePath, safeStorage, log = { warn: () => 
         refresh_token: credentials.refresh_token,
         scope: typeof credentials.scope === 'string' ? credentials.scope : '',
         token_type: isNonEmptyString(credentials.token_type) ? credentials.token_type : 'Bearer',
+        ...(Number.isFinite(credentials.linked_at) ? { linked_at: credentials.linked_at } : {}),
       };
       const encrypted = safeStorage.encryptString(JSON.stringify(stored));
       // 書き込み途中の中断でトークンを壊さないよう、一時ファイル経由で置き換える
@@ -63,6 +66,7 @@ export function createTokenStorage({ filePath, safeStorage, log = { warn: () => 
           refresh_token: parsed.refresh_token,
           scope: typeof parsed.scope === 'string' ? parsed.scope : '',
           token_type: isNonEmptyString(parsed.token_type) ? parsed.token_type : 'Bearer',
+          ...(Number.isFinite(parsed.linked_at) ? { linked_at: parsed.linked_at } : {}),
         };
       } catch (error) {
         await quarantineUnreadable({ filePath, error, log });

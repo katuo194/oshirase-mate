@@ -1,7 +1,8 @@
 // 共有版（知人グループへの配布用。2.4・2.5・9章#2）。
 // - ビルド時の既定の版を shared にする（package.json の mascotEdition。edition.js の優先順位 2 番目）
-// - 開発者の OAuth 資格情報（.env）は含めない。利用者が設定画面で自分の Client ID/Secret を入力する
-// - セットアップ手順書（HTML）を実行ファイルと同じフォルダに置く（zip を展開して最初に目に入る。設定画面の「セットアップ手順を開く」でアプリ内のウィンドウに開く）
+// - 開発者の OAuth 資格情報（.env）は含めない。利用者が設定画面の「Google 連携」タブで Client ID/Secret を読み込む（受け取ったもの・自分で作ったもの）
+// - セットアップ手順書（HTML）を実行ファイルと同じフォルダに置く（zip を展開して最初に目に入る。設定画面の「セットアップ手順を開く」でアプリ内のウィンドウに開く）。
+//   手順書の画面の写真（Phase 16）は同じフォルダの setup-guide-images/ に置く（手順書からの相対パス。docs/ の中と同じ並び）
 // - ライセンス（MIT）を LICENSE.txt として同じフォルダに置く（GitHub で配布する：Phase 11。Electron 自身のものは electron-builder が LICENSE.electron.txt として置く）
 const base = require('./electron-builder.base.cjs');
 
@@ -12,6 +13,7 @@ module.exports = {
   extraMetadata: { mascotEdition: 'shared' },
   extraFiles: [
     { from: 'docs/setup-guide.html', to: 'セットアップ手順書.html' },
+    { from: 'docs/setup-guide-images', to: 'setup-guide-images' },
     { from: 'LICENSE', to: 'LICENSE.txt' },
   ],
   artifactName: 'oshirase-mate-shared-${version}-win-${arch}.${ext}',

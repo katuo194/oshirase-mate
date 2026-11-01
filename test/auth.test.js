@@ -307,6 +307,121 @@ describe('連携フロー（link）', () => {
   });
 });
 
+/** linked_at も含めてそのまま覚えるメモリ上の tokenStorage（Phase 16） */
+function fullStorage(initial = null) {
+  const s = {
+    data: initial,
+    save: vi.fn(async (c) => {
+      s.data = { ...c };
+    }),
+    load: vi.fn(async () => (s.data ? { ...s.data } : null)),
+    remove: vi.fn(async () => {
+      s.data = null;
+    }),
+  };
+  return s;
+}
+
+describe('同意した時刻（linkedAt。Phase 16）', () => {
+  it('連携すると同意した時刻を tokens.enc に保存し、状態に載せる', async () => {
+    const ctx = setup({ storage: fullStorage() });
+    const done = startLink(ctx);
+    await vi.waitFor(() => expect(ctx.loop.servers).toHaveLength(1));
+    ctx.loop.servers[0].deliver({ code: FIXTURE.code });
+    await done;
+    expect(ctx.tokenStorage.data.linked_at).toBe(ctx.clock.t);
+    expect(ctx.auth.getState()).toEqual({ status: 'linked', lastError: null, linkedAt: ctx.clock.t });
+  });
+
+  it('起動時に保存してある時刻を読み込む。無い（Phase 16 より前の連携）なら null。getCredentials には含めない', async () => {
+    const ctx = setup({ storage: fullStorage({ ...storedCreds, linked_at: 123 }) });
+    await ctx.auth.init();
+    expect(ctx.auth.getState()).toMatchObject({ status: 'linked', linkedAt: 123 });
+    expect(await ctx.auth.getCredentials()).not.toHaveProperty('linked_at');
+
+    const old = setup({ storage: fullStorage(storedCreds) });
+    await old.auth.init();
+    expect(old.auth.getState()).toMatchObject({ status: 'linked', linkedAt: null });
+  });
+
+  it('リフレッシュトークンが差し替わって保存し直すときも、同意した時刻を残す', async () => {
+    const google = createFakeGoogleOAuth();
+    google.rotateRefreshTokenTo('rotated-refresh-token');
+    const ctx = setup({ google, storage: fullStorage({ ...storedCreds, linked_at: 123 }) });
+    await ctx.auth.init();
+    expect(ctx.tokenStorage.data).toMatchObject({ refresh_token: 'rotated-refresh-token', linked_at: 123 });
+  });
+});
+
+describe('連携し直す（relink。Phase 16）', () => {
+  async function linkedCtx() {
+    const ctx = setup({ storage: fullStorage({ ...storedCreds, linked_at: 1 }) });
+    await ctx.auth.init();
+    ctx.clock.t += 6 * 24 * 60 * 60 * 1000;
+    return ctx;
+  }
+
+  it('連携したまま同意をやり直し、成功したらトークンと同意した時刻を差し替える（状態は linked のまま）', async () => {
+    const ctx = await linkedCtx();
+    ctx.states.length = 0;
+    const done = ctx.auth.relink();
+    expect(ctx.auth.getState()).toMatchObject({ status: 'linked', relinking: true, linkedAt: 1 });
+    await vi.waitFor(() => expect(ctx.opened).toHaveLength(1));
+    // 同意の途中も、古いトークンで API を呼べる（通知の取得は止まらない）
+    expect((await ctx.auth.getAccessToken()).ok).toBe(true);
+    ctx.loop.servers[0].deliver({ code: FIXTURE.code });
+    await done;
+    expect(ctx.states.every((s) => s === 'linked')).toBe(true);
+    expect(ctx.auth.getState()).toEqual({ status: 'linked', lastError: null, linkedAt: ctx.clock.t });
+    expect(ctx.tokenStorage.data).toMatchObject({ refresh_token: 'new-refresh-token', linked_at: ctx.clock.t });
+    // 古いトークンは取り消さない（同じ許可から出た新しいトークンまで無効になることがあるため）
+    expect(ctx.google.callsTo(REVOKE_ENDPOINT)).toHaveLength(0);
+  });
+
+  it('同意を拒否・キャンセルしたら、元のトークンのまま linked に戻る', async () => {
+    const ctx = await linkedCtx();
+    const done = ctx.auth.relink();
+    await vi.waitFor(() => expect(ctx.loop.servers).toHaveLength(1));
+    ctx.loop.servers[0].deliver({ error: 'denied' });
+    await done;
+    expect(ctx.auth.getState()).toEqual({ status: 'linked', lastError: 'denied', linkedAt: 1 });
+    expect(ctx.tokenStorage.data).toMatchObject({ refresh_token: FIXTURE.refreshToken, linked_at: 1 });
+
+    const again = ctx.auth.relink();
+    await vi.waitFor(() => expect(ctx.loop.servers).toHaveLength(2));
+    ctx.auth.cancel();
+    await again;
+    expect(ctx.loop.servers[1].closed).toBe(true);
+    expect(ctx.auth.getState()).toEqual({ status: 'linked', lastError: null, linkedAt: 1 });
+  });
+
+  it('同意の途中で古いトークンが切れたら未連携になり、同意が済めば linked に戻る', async () => {
+    const ctx = await linkedCtx();
+    const done = ctx.auth.relink();
+    await vi.waitFor(() => expect(ctx.opened).toHaveLength(1));
+    ctx.google.validRefreshTokens.clear();
+    ctx.auth.invalidateAccessToken();
+    expect((await ctx.auth.getAccessToken()).ok).toBe(false);
+    expect(ctx.auth.getState()).toMatchObject({ status: 'unlinked', lastError: 'expired' });
+    ctx.loop.servers[0].deliver({ code: FIXTURE.code });
+    await done;
+    expect(ctx.auth.getState()).toMatchObject({ status: 'linked', lastError: null });
+  });
+
+  it('未連携・同意の途中・連携し直しの途中では何もしない', async () => {
+    const ctx = setup();
+    await ctx.auth.relink();
+    expect(ctx.loop.servers).toHaveLength(0);
+    const linked = await linkedCtx();
+    const done = linked.auth.relink();
+    await linked.auth.relink();
+    await vi.waitFor(() => expect(linked.opened).toHaveLength(1));
+    expect(linked.loop.servers).toHaveLength(1);
+    linked.loop.servers[0].deliver({ code: FIXTURE.code });
+    await done;
+  });
+});
+
 describe('連携解除（unlink）', () => {
   it('Google 側を revoke し、ローカルのトークンを削除して unlinked', async () => {
     const ctx = setup({ stored: storedCreds });

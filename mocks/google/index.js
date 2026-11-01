@@ -46,6 +46,8 @@ export function createFakeGoogleApi({ importantIds, unreadOtherCount } = {}) {
   let important = importantIds
     ? [...importantIds]
     : GMAIL.importantInitial.messages.map((m) => m.id);
+  /** 重要メールの届いた時刻（after: の検索用。Phase 16）。無いものは昔に届いたもの */
+  const receivedAt = new Map();
   let otherCount = unreadOtherCount ?? GMAIL.unreadOtherInitial.resultSizeEstimate;
   const messageMeta = structuredClone(GMAIL.messages);
 
@@ -88,6 +90,12 @@ export function createFakeGoogleApi({ importantIds, unreadOtherCount } = {}) {
     async listMessages({ q, maxResults = 100, pageToken } = {}) {
       record('listMessages', { q, maxResults, pageToken });
       if (q === QUERY_IMPORTANT) return messageList(important);
+      // 連携が切れていた間の分（Phase 16）：`is:important is:unread after:<エポック秒>`。新しい順に maxResults 件まで
+      const after = new RegExp(`^${QUERY_IMPORTANT} after:(\\d+)$`).exec(q ?? '');
+      if (after) {
+        const sinceMs = Number(after[1]) * 1000;
+        return messageList(important.filter((id) => (receivedAt.get(id) ?? 0) > sinceMs).slice(0, maxResults));
+      }
       if (q === QUERY_OTHER) {
         // 実 Gmail API と同じく maxResults / pageToken でページングする（pageToken は開始位置）。
         // 結果が1ページに収まらないとき resultSizeEstimate は実件数ではなく 201 の固定値になる（実機ログで確認済みの癖）。
@@ -110,9 +118,10 @@ export function createFakeGoogleApi({ importantIds, unreadOtherCount } = {}) {
 
     // ---- テストから状態を動かすヘルパ ----
 
-    /** 重要メールの新着。metadata が fixture に無ければ最小限のものを作る。 */
-    addImportantMessage(id, { subject, from } = {}) {
+    /** 重要メールの新着。metadata が fixture に無ければ最小限のものを作る。届いた時刻は今（テストの偽の時計） */
+    addImportantMessage(id, { subject, from, at = Date.now() } = {}) {
       important = [id, ...important];
+      receivedAt.set(id, at);
       messageMeta[id] ??= {
         id,
         threadId: id,

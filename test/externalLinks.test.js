@@ -3,12 +3,13 @@ import { EXTERNAL_LINKS, externalUrlFor, isExternalLinkUrl } from '../src/main/e
 
 // 設定画面のボタンで開く外部のページ（Phase 12・v5.15）。画面はリンクの名前だけを送る
 describe('externalLinks', () => {
-  it('「Google 連携の準備」の手順 1〜3 と、VOICEVOX・Gemini API キーのページがそろっている', () => {
-    expect(Object.keys(EXTERNAL_LINKS).sort()).toEqual(['apis', 'audience', 'branding', 'client', 'geminiKey', 'voicevox']);
+  it('「Google 連携」の手順 1-a〜3 と、VOICEVOX・Gemini API キーのページがそろっている', () => {
+    expect(Object.keys(EXTERNAL_LINKS).sort()).toEqual(['apis', 'audience', 'branding', 'client', 'geminiKey', 'projectCreate', 'voicevox']);
   });
 
   it('すべて https で、決まったホスト（Console・VOICEVOX・AI Studio）', () => {
     const hosts = {
+      projectCreate: 'console.cloud.google.com',
       apis: 'console.cloud.google.com',
       branding: 'console.cloud.google.com',
       audience: 'console.cloud.google.com',
@@ -24,7 +25,11 @@ describe('externalLinks', () => {
     }
   });
 
-  it('手順 1 は Calendar・Tasks・Gmail の 3 つの API を一度に有効にするページ', () => {
+  it('手順 1-a はプロジェクトの作成ページ（作成後に API の画面へ戻らないため、手順 1-b と分ける：Phase 16）', () => {
+    expect(externalUrlFor('projectCreate')).toBe('https://console.cloud.google.com/projectcreate');
+  });
+
+  it('手順 1-b は Calendar・Tasks・Gmail の 3 つの API を一度に有効にするページ', () => {
     const u = new URL(externalUrlFor('apis'));
     expect(u.pathname).toBe('/flows/enableapi');
     expect(u.searchParams.get('apiid').split(',')).toEqual(['calendar-json.googleapis.com', 'tasks.googleapis.com', 'gmail.googleapis.com']);

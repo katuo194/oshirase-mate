@@ -1,6 +1,6 @@
 // 配布ビルドの前後の確認（9章#2・#3。v5.11）。
 //   node scripts/check-dist.mjs pre personal  … ビルド前：.env があり、Client ID/Secret の形式が正しいこと（個人版は .env を同梱する）
-//   node scripts/check-dist.mjs post shared   … ビルド後：共有版に .env が含まれていないこと、ビルド時の版が shared であること、手順書と LICENSE.txt があること、
+//   node scripts/check-dist.mjs post shared   … ビルド後：共有版に .env が含まれていないこと、ビルド時の版が shared であること、手順書（と画面の写真）と LICENSE.txt があること、
 //                                               同梱キャラクター（F-23）の素材がそろっていて app.asar に入っていること
 //   node scripts/check-dist.mjs post personal … ビルド後：個人版に resources/.env があり、ビルド時の版が personal であること
 //   （post は両版とも、Chromium の言語ファイルが日本語・英語だけであることも確かめる）
@@ -70,10 +70,15 @@ if (edition === 'shared') {
   const stray = fs.readdirSync(appDir, { recursive: true }).map(String).filter((f) => /(^|[\\/])\.env(\.|$)/.test(f));
   if (stray.length > 0) fail(`共有版に .env が含まれています: ${stray.join(', ')}`);
   if (!fs.existsSync(path.join(appDir, 'セットアップ手順書.html'))) fail('実行ファイルと同じフォルダに セットアップ手順書.html がありません');
+  // 手順書が参照する画面の写真（Phase 16）がすべて setup-guide-images/ にあること
+  const guide = fs.readFileSync(path.join(appDir, 'セットアップ手順書.html'), 'utf8');
+  const images = [...new Set(guide.match(/setup-guide-images\/[\w.-]+/g) ?? [])];
+  const missingImages = images.filter((f) => !fs.existsSync(path.join(appDir, f)));
+  if (missingImages.length > 0) fail(`手順書の画面の写真がありません: ${missingImages.join(', ')}`);
   if (!fs.existsSync(path.join(appDir, 'LICENSE.txt'))) fail('実行ファイルと同じフォルダに LICENSE.txt がありません');
   const zips = fs.readdirSync(path.join(root, 'dist', edition)).filter((f) => f.endsWith('.zip'));
   if (zips.length === 0) fail('配布用の zip がありません');
-  ok(`.env なし、セットアップ手順書・LICENSE.txt あり、配布物: ${zips.join(', ')}`);
+  ok(`.env なし、セットアップ手順書（写真 ${images.length} 枚）・LICENSE.txt あり、配布物: ${zips.join(', ')}`);
 
   // 同梱キャラクター（F-23）：素材がそろっていて（画像・セリフ・固定ボイス）、そのすべてが app.asar に入っていること。
   // GitHub から zip を入れた利用者が、VOICEVOX が無くても同梱キャラクターを使えるようにする

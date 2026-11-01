@@ -51,6 +51,14 @@ describe('tokenStorage', () => {
     expect(Object.keys(loaded).sort()).toEqual(['refresh_token', 'scope', 'token_type']);
   });
 
+  it('同意した時刻（linked_at。Phase 16）も保存して読み戻せる。数でなければ保存しない', async () => {
+    const s = createTokenStorage({ filePath, safeStorage: fakeSafeStorage() });
+    await s.save({ ...creds, linked_at: 1_700_000_000_000 });
+    expect(await s.load()).toEqual({ ...creds, linked_at: 1_700_000_000_000 });
+    await s.save({ ...creds, linked_at: 'yesterday' });
+    expect(await s.load()).toEqual(creds);
+  });
+
   it('無い場合は null', async () => {
     expect(await createTokenStorage({ filePath, safeStorage: fakeSafeStorage() }).load()).toBeNull();
   });

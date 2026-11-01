@@ -1,5 +1,5 @@
 // Google Cloud Console からダウンロードした OAuth クライアントの JSON（client_secret_〜.json）の読み込み（2.4・3.6。Phase 12・v5.15）。
-// 設定画面の「Google 連携の準備」の手順 4（ファイルを選ぶ／ドラッグ＆ドロップ）で使う。Client ID/Secret の検証は authCore.validateOAuthClient に任せる。
+// 設定画面の「Google 連携」タブの「ファイルを選ぶ」・B の手順 4 のドラッグ＆ドロップで使う。Client ID/Secret の検証は authCore.validateOAuthClient に任せる。
 // 解析（parseOAuthClientFile）は純粋関数。読み込み（readOAuthClientFile）は fs を注入する（Vitest で一時ファイルを読む）。
 // 値そのもの（特に Secret）は理由・例外・ログに含めない。
 

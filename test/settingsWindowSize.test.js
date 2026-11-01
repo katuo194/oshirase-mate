@@ -10,9 +10,9 @@ import {
 const FULL_HD = { width: 1920, height: 1040 };
 
 describe('resolveSettingsWindowSize（設定ウィンドウの大きさ：v5.19）', () => {
-  it('覚えた大きさが無ければ既定の 1000×660', () => {
-    expect(resolveSettingsWindowSize(null, FULL_HD)).toEqual({ width: 1000, height: 660 });
-    expect(SETTINGS_DEFAULT_SIZE).toEqual({ width: 1000, height: 660 });
+  it('覚えた大きさが無ければ既定の 720×760（縦長・1 列。Phase 16）', () => {
+    expect(resolveSettingsWindowSize(null, FULL_HD)).toEqual({ width: 720, height: 760 });
+    expect(SETTINGS_DEFAULT_SIZE).toEqual({ width: 720, height: 760 });
   });
 
   it('覚えた大きさで開く（小数は丸める）', () => {
@@ -31,7 +31,7 @@ describe('resolveSettingsWindowSize（設定ウィンドウの大きさ：v5.19�
 
   it('作業領域より大きくはしない（高さはタイトルバーの分 40 を引く）', () => {
     expect(resolveSettingsWindowSize({ width: 3000, height: 3000 }, FULL_HD)).toEqual({ width: 1920, height: 1000 });
-    expect(resolveSettingsWindowSize(null, { width: 900, height: 600 })).toEqual({ width: 900, height: 560 });
+    expect(resolveSettingsWindowSize(null, { width: 700, height: 600 })).toEqual({ width: 700, height: 560 });
   });
 
   it('作業領域が最小より小さいときは作業領域に合わせる', () => {
@@ -40,8 +40,8 @@ describe('resolveSettingsWindowSize（設定ウィンドウの大きさ：v5.19�
 });
 
 describe('isSettingsTab（設定ウィンドウのタブ）', () => {
-  it('設定とキャラクターの 2 つだけ', () => {
-    expect(SETTINGS_TABS).toEqual(['settings', 'character']);
+  it('設定・Google 連携・キャラクターの 3 つだけ', () => {
+    expect(SETTINGS_TABS).toEqual(['settings', 'google', 'character']);
     expect(SETTINGS_TABS.every(isSettingsTab)).toBe(true);
     for (const v of [undefined, null, '', 'Settings', 'chat', 'toString']) expect(isSettingsTab(v)).toBe(false);
   });

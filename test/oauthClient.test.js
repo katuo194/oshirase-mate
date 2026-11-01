@@ -43,6 +43,16 @@ describe('oauthClientStorage（oauth-client.enc の暗号化保存）', () => {
     await expect(fs.access(`${filePath}.tmp`)).rejects.toThrow(); // 一時ファイルは残らない
   });
 
+  it('どの道で入れたか（origin。Phase 16）も保存して読み戻せる。知らない値は保存しない', async () => {
+    const storage = createOAuthClientStorage({ filePath, safeStorage: fakeSafeStorage() });
+    for (const origin of ['received', 'self']) {
+      await storage.save({ ...CLIENT, origin });
+      expect(await storage.load()).toEqual({ ...CLIENT, origin });
+    }
+    await storage.save({ ...CLIENT, origin: 'other' });
+    expect(await storage.load()).toEqual(CLIENT);
+  });
+
   it('暗号化できない環境では平文にフォールバックせず throw し、ファイルも作らない', async () => {
     const storage = createOAuthClientStorage({ filePath, safeStorage: fakeSafeStorage({ available: false }) });
     await expect(storage.save(CLIENT)).rejects.toThrow('encryption unavailable');
@@ -140,7 +150,7 @@ describe('oauthClient（共有版の Client ID/Secret。2.4・3.6・F-18）', ()
   it('起動時：未保存なら未設定のまま（連携は開始できない）', async () => {
     const ctx = setup();
     await ctx.oauthClient.init();
-    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: false, editable: true });
+    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: false, origin: null, editable: true });
     expect(ctx.auth.getState()).toMatchObject({ status: 'unconfigured' });
     await ctx.auth.link();
     expect(ctx.servers).toHaveLength(0); // 空の資格情報で連携を試みない
@@ -150,7 +160,7 @@ describe('oauthClient（共有版の Client ID/Secret。2.4・3.6・F-18）', ()
     const ctx = setup();
     await ctx.oauthClient.init();
     expect(await ctx.oauthClient.set({ clientId: `  ${CLIENT.clientId}`, clientSecret: `${CLIENT.clientSecret}\n` })).toEqual({ ok: true });
-    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: true, editable: true });
+    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: true, origin: null, editable: true });
     expect(ctx.auth.getState()).toEqual({ status: 'unlinked', lastError: null });
     await link(ctx);
     expect(ctx.auth.getState().status).toBe('linked');
@@ -201,6 +211,31 @@ describe('oauthClient（共有版の Client ID/Secret。2.4・3.6・F-18）', ()
     expect(await ctx.storage.load()).toBeNull();
   });
 
+  it('どの道で入れたか（origin。Phase 16）を保存し、状態に載せる。次回起動時にも読み込み、削除で消す', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    expect(await ctx.oauthClient.set(CLIENT, { origin: 'self' })).toEqual({ ok: true });
+    expect(ctx.oauthClient.getState()).toMatchObject({ configured: true, origin: 'self' });
+    expect(ctx.oauthClient.getOrigin()).toBe('self');
+    expect(await ctx.storage.load()).toEqual({ ...CLIENT, origin: 'self' });
+
+    const next = setup();
+    await next.oauthClient.init();
+    expect(next.oauthClient.getOrigin()).toBe('self');
+    expect(next.auth.getState().status).toBe('unlinked'); // origin は auth に渡さない
+
+    expect(await next.oauthClient.clear()).toEqual({ ok: true });
+    expect(next.oauthClient.getOrigin()).toBeNull();
+  });
+
+  it('知らない origin は null として保存する（Phase 16 より前の保存も null）', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    await ctx.oauthClient.set(CLIENT, { origin: 'undefined' });
+    expect(ctx.oauthClient.getOrigin()).toBeNull();
+    expect(await ctx.storage.load()).toEqual(CLIENT);
+  });
+
   it('連携状態が変わると change を出す（設定画面の入力欄のロック）', async () => {
     const ctx = setup();
     await ctx.oauthClient.init();
@@ -244,7 +279,7 @@ describe('oauthClient.importFile（Console からダウンロードした JSON �
     const ctx = setup();
     await ctx.oauthClient.init();
     expect(await ctx.oauthClient.importFile(await placeMock('client_secret_desktop.json'))).toEqual({ ok: true });
-    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: true, editable: true });
+    expect(ctx.oauthClient.getState()).toEqual({ edition: 'shared', userInput: true, configured: true, origin: null, editable: true });
     expect(await ctx.storage.load()).toEqual({ clientId: DESKTOP_ID, clientSecret: DESKTOP_SECRET });
     expect(ctx.auth.getState()).toEqual({ status: 'unlinked', lastError: null });
     expect(ctx.states.at(-1)).toMatchObject({ configured: true });
@@ -254,6 +289,13 @@ describe('oauthClient.importFile（Console からダウンロードした JSON �
     expect(new URL(ctx.opened[0]).searchParams.get('client_id')).toBe(DESKTOP_ID); // .env の値ではない
     ctx.auth.cancel();
     await done;
+  });
+
+  it('JSON の読み込みにも origin を付けられる（B の手順 4 は自分で作ったもの）', async () => {
+    const ctx = setup();
+    await ctx.oauthClient.init();
+    expect(await ctx.oauthClient.importFile(await placeMock('client_secret_desktop.json'), { origin: 'self' })).toEqual({ ok: true });
+    expect(ctx.oauthClient.getState()).toMatchObject({ configured: true, origin: 'self' });
   });
 
   it('読み込めない JSON は保存せず理由を返す（auth も変えない）', async () => {
@@ -301,7 +343,7 @@ describe('oauthClient / 個人版（.env を使う）', () => {
     await setup().storage.save(CLIENT); // 共有版で保存したファイルがあっても
     const ctx = setup({ edition: 'personal' });
     await ctx.oauthClient.init();
-    expect(ctx.oauthClient.getState()).toEqual({ edition: 'personal', userInput: false, configured: false, editable: false });
+    expect(ctx.oauthClient.getState()).toEqual({ edition: 'personal', userInput: false, configured: false, origin: null, editable: false });
     expect(ctx.auth.getState().status).toBe('unlinked'); // .env の値で設定済み
     expect(await ctx.oauthClient.set(CLIENT)).toEqual({ ok: false, reason: 'not_shared' });
     expect(await ctx.oauthClient.clear()).toEqual({ ok: false, reason: 'not_shared' });
