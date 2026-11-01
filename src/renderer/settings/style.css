@@ -80,7 +80,9 @@ main.columns {
     overflow-y: auto;
   }
 
+  /* min-height は auto に戻す（0 のままだと、低いウィンドウで行が縮み、下の列が上の列に重なって描かれる。Phase 16 の実機で確認） */
   .col {
+    min-height: auto;
     overflow: visible;
     padding-bottom: 0;
   }
