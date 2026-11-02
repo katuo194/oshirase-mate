@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { siteImagesOf } from '../scripts/build-site.mjs';
 import { EXTERNAL_LINKS } from '../src/main/externalLinks.js';
 
 // 利用者向けの文書・画面の文言（Phase 12・v5.15）。利用者に配るのは共有版だけなので、版の名前や開発の話を見せない。
@@ -51,6 +52,39 @@ describe('利用者向けの文書・画面', () => {
     const guide = read('docs/setup-guide.html');
     const ids = new Set([...guide.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
     for (const [, target] of guide.matchAll(/href="#([^"]+)"/g)) expect(ids.has(target), target).toBe(true);
+  });
+
+  describe('ホームページとプライバシーポリシー（site/。Phase 16・付録 A-37）', () => {
+    const pages = ['site/index.html', 'site/privacy.html'];
+
+    it('本文に「共有版」「個人版」が出てこない', () => {
+      for (const page of pages) for (const word of ['共有版', '個人版']) expect(withoutComments(read(page)), page).not.toContain(word);
+    });
+
+    it('ホームページはアプリの名前を見出しにして、プライバシーポリシーへリンクしている（Google の「ブランディング」の要件）', () => {
+      const home = withoutComments(read('site/index.html'));
+      expect(home).toContain('<h1>おしらせメイト</h1>');
+      expect(home).toContain('href="privacy.html"');
+    });
+
+    it('プライバシーポリシーに、読み取るスコープと「限定使用」の一文がある', () => {
+      const policy = withoutComments(read('site/privacy.html'));
+      for (const scope of ['calendar.readonly', 'tasks.readonly', 'gmail.readonly']) expect(policy).toContain(scope);
+      expect(policy).toContain('限定使用の要件を含む');
+      expect(policy).toContain('including the Limited Use requirements');
+      expect(policy).toContain('https://developers.google.com/terms/api-services-user-data-policy');
+    });
+
+    it('参照している画像は docs/images/ にあり、サイト内のリンクの行き先は書き出すファイルにある', () => {
+      const published = new Set([...fs.readdirSync(new URL('../site/', import.meta.url)), 'setup-guide.html']);
+      for (const page of pages) {
+        const html = read(page);
+        for (const image of siteImagesOf(html)) expect(fs.existsSync(new URL(`../docs/images/${image}`, import.meta.url)), image).toBe(true);
+        for (const [, target] of html.matchAll(/href="(?!https:|#)([^"#]*)/g)) {
+          if (target !== './') expect(published.has(target), `${page} → ${target}`).toBe(true);
+        }
+      }
+    });
   });
 
   it('「Google 連携」タブのボタンで開くページは、すべて externalLinks の表にある（Phase 16）', () => {

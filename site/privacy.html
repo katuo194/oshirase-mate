@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>プライバシーポリシー - おしらせメイト</title>
+<link rel="stylesheet" href="style.css" />
+<!-- アプリのプライバシーポリシー（Phase 16・要件定義書 2.4・付録 A-37）。GitHub Pages（https://katuo194.github.io/oshirase-mate/privacy.html）で公開し、
+     配布用の Google Cloud プロジェクトの「ブランディング」にこの URL を入れる。
+     書いてあることは実装の事実に合わせる：スコープ（2.3）・Gmail は format=metadata（Subject・From・Date）・保存するもの（4 章・5 章）・
+     ログ（表示した通知の 1 行に件名が入る：notificationLogger.js）・Gemini に送るもの（2.7）・接続の確認（generate_204）。
+     実装を変えたらここも直し、「最終更新日」を書き換える。「限定使用」の一文は Google API サービスのユーザーデータに関するポリシーが求めるもの。 -->
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="name" href="./">おしらせメイト</a>
+    <nav aria-label="サイト内">
+      <a href="./">ホーム</a>
+      <a href="setup-guide.html">セットアップ手順書</a>
+      <a href="privacy.html" aria-current="page">プライバシーポリシー</a>
+      <a href="https://github.com/katuo194/oshirase-mate">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <h1 class="page">プライバシーポリシー</h1>
+    <p class="updated">制定日・最終更新日：2026年11月1日</p>
+
+    <p>おしらせメイト（以下「本アプリ」）は、katuo194（以下「開発者」）が個人で開発・配布している Windows 用のデスクトップアプリです。このページでは、本アプリが扱う情報と、その取り扱いについて説明します。</p>
+
+    <div class="summary">
+      <p><strong>要点</strong></p>
+      <ul>
+        <li>Google のデータ（予定・タスク・メール）は<strong>読み取りだけ</strong>で、すべてお使いの PC の中で処理します。</li>
+        <li>開発者のサーバーはありません。<strong>開発者にデータが届くことはありません</strong>。</li>
+        <li>広告、アクセス解析、利用状況の送信はしません。</li>
+        <li>Google のデータを AI（Gemini）に送ったり、AI の学習に使ったりしません。</li>
+      </ul>
+    </div>
+
+    <h2 id="google-data">1. 本アプリが読み取る Google のデータ</h2>
+    <p>Google アカウントと連携すると、次のデータを読み取り専用の権限（スコープ）で読み取ります。予定・タスク・メールを変更・削除・送信することはありません。</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>サービス（スコープ）</th><th>使うデータ</th><th>使い道</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Google カレンダー<br /><code>calendar.readonly</code></td>
+            <td>メインのカレンダーの、今後 24 時間の予定のタイトル・開始時刻・リマインダーの設定</td>
+            <td>リマインダーの時刻に、予定をお知らせする</td>
+          </tr>
+          <tr>
+            <td>Google ToDo リスト<br /><code>tasks.readonly</code></td>
+            <td>未完了のタスクのタイトル・期限の日付</td>
+            <td>期限の日の設定した時刻に、タスクをお知らせする</td>
+          </tr>
+          <tr>
+            <td>Gmail<br /><code>gmail.readonly</code></td>
+            <td>未読のメールの件名・差出人・日時と、Gmail が付けた「重要」の印</td>
+            <td>重要なメールをお知らせし、ほかの未読の件数をバッジに出す</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>メールの本文・添付ファイルは使いません（表示・保存・送信をしません）。Google アカウントのメールアドレスやプロフィールは読み取りません。</p>
+
+    <h2 id="use">2. データの使い道</h2>
+    <p>読み取ったデータは、お使いの PC の画面にお知らせを出し、読み上げるためだけに使います。広告、販売、利用者の分析、AI の学習には使いません。</p>
+
+    <h2 id="storage">3. PC に保存するもの</h2>
+    <p>本アプリは、次のものをお使いの PC の <code>%APPDATA%\おしらせメイト</code> に保存します。開発者が見ることはできません。</p>
+    <ul>
+      <li><strong>Google との連携情報（リフレッシュトークン）・読み込んだクライアント（Client ID と Client Secret）・Gemini API キー</strong>：Windows の機能で暗号化して保存します。ログには記録しません。</li>
+      <li><strong>お知らせ済みの記録</strong>：同じお知らせを二度出さないための ID で、7 日で消します。</li>
+      <li><strong>ログ</strong>：エラーや状態の変化と、表示したお知らせの種類・タイトル（予定・タスクのタイトル、メールの件名と差出人の名前）・時刻を記録します。14 日分だけ残し、古いものは自動で消します。メールの本文、チャットの内容、トークン・Client Secret・API キーは記録しません。</li>
+      <li><strong>読み上げの音声</strong>：VOICEVOX で作った音声を一時的に保存し、読み上げが終わったら消します。</li>
+      <li><strong>設定と、作成・取り込んだキャラクター</strong>（キャラクター設定・セリフを含む）</li>
+    </ul>
+    <p>予定・タスク・メールの一覧は保存せず、アプリを終了すると消えます。</p>
+
+    <h2 id="sending">4. 外部への送信</h2>
+    <ul>
+      <li><strong>Google</strong>：連携と、予定・タスク・メールの読み取りのために、お使いの PC から Google のサーバーへ直接通信します。インターネットにつながっているかの確認のために、Google のサーバー（<code>www.google.com</code>）にも問い合わせます（データは送りません）。</li>
+      <li><strong>Gemini（Google）</strong>：チャットで話しかけたときと、キャラクターの編集画面で「Gemini でセリフを作る」を押したときだけ、お使いの Gemini API キーで、<strong>入力した文章・キャラクター名・キャラクター設定</strong>を送ります。予定・タスク・メールの内容は送りません。送った内容の Google での扱いは、<a href="https://ai.google.dev/gemini-api/terms">Gemini API の利用規約</a>に従います（無料で使う場合、Google がサービスの改善に使うことがあります）。</li>
+      <li><strong>VOICEVOX</strong>：読み上げのために、お知らせの文（タイトルや件名を含む）を、お使いの PC で動いている VOICEVOX へ送ります。PC の外には出ません。</li>
+      <li><strong>開発者</strong>：何も送りません。不具合の報告で、ログなどを GitHub の Issues に載せるかどうかは、利用者が決めることができます。</li>
+    </ul>
+
+    <h2 id="limited-use">5. Google API サービスのユーザーデータに関するポリシーへの準拠</h2>
+    <p>本アプリが Google API から受け取った情報の使用と、他のアプリへの転送は、限定使用の要件を含む <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API サービスのユーザーデータに関するポリシー</a>に従います。</p>
+    <blockquote lang="en">
+      <p>Oshirase Mate's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    </blockquote>
+    <p>あわせて、次のことを守ります。</p>
+    <ul>
+      <li>Google のデータは、上に書いたお知らせの機能のためだけに使います。</li>
+      <li>Google のデータを、第三者に渡したり、販売したりしません。</li>
+      <li>Google のデータを人が読むことはありません（開発者はデータを受け取らないため、読むことができません）。</li>
+      <li>Google のデータを、AI・機械学習のモデルの作成や改善に使いません。</li>
+    </ul>
+
+    <h2 id="delete">6. 連携の解除とデータの削除</h2>
+    <ul>
+      <li><strong>連携の解除</strong>：設定画面の「連携解除」を押すと、Google 側の許可を取り消し、PC に保存した連携情報を削除します。Google アカウントの<a href="https://myaccount.google.com/permissions">サードパーティ製のアプリとサービス</a>のページからも取り消せます。</li>
+      <li><strong>データの削除</strong>：アプリを終了してから <code>%APPDATA%\おしらせメイト</code> フォルダを削除すると、本アプリが保存したものはすべて消えます。Gemini API キーだけを消したいときは、設定画面の「チャット（Gemini）」欄で削除できます。</li>
+    </ul>
+    <p>開発者はデータを持っていないため、開発者への削除のご依頼は必要ありません。</p>
+
+    <h2 id="changes">7. このポリシーの変更</h2>
+    <p>本アプリの機能が変わったときなどに、このポリシーを変更することがあります。変更したときは、このページで内容と最終更新日を書き換えます。</p>
+
+    <h2 id="contact">8. お問い合わせ</h2>
+    <p>このポリシーや本アプリについてのお問い合わせは、<a href="https://github.com/katuo194/oshirase-mate/issues">GitHub の Issues</a> へお寄せください。Issues は誰でも見られるため、個人情報は書かないでください。</p>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>おしらせメイト ・ 開発：katuo194</span>
+    <nav aria-label="フッター">
+      <a href="./">ホーム</a>
+      <a href="https://github.com/katuo194/oshirase-mate/blob/main/LICENSE">ライセンス（MIT）</a>
+      <a href="https://github.com/katuo194/oshirase-mate">ソースコード</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

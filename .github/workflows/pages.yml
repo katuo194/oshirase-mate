@@ -1,0 +1,46 @@
+# ホームページとプライバシーポリシーを GitHub Pages（https://katuo194.github.io/oshirase-mate/）に公開する（Phase 16・要件定義書 付録 A-37）。
+# 公開するファイルは scripts/build-site.mjs が集める（site/・docs/images/ の画像・セットアップ手順書）。
+# 最初に一度だけ、リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」にする（docs/development.md）。
+# 無料プランでは非公開のリポジトリから Pages を出せないので、非公開のあいだは公開の仕事を飛ばす。
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/images/**'
+      - 'docs/setup-guide.html'
+      - 'docs/setup-guide-images/**'
+      - 'scripts/build-site.mjs'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - run: node scripts/build-site.mjs _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

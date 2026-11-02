@@ -60,7 +60,12 @@ npx.cmd electron . --dev --user-data-dir="$env:TEMP\mascot-shared"  # npx.ps1 �
 **最初に一度だけ（配布専用のプロジェクト）**
 
 1. 手順書の 2-B の手順 1-a〜2 と同じように、プロジェクトを作り、3 つの API を有効にし、Google Auth Platform を設定する（対象は「外部」）。
-2. 「ブランディング」で、アプリのホームページとプライバシーポリシーの URL を入れる（本番環境に公開するのに必要）。
+2. 「ブランディング」で、アプリのホームページとプライバシーポリシーの URL を入れる（本番環境に公開するのに必要。下の「ホームページとプライバシーポリシー」）。
+   - アプリ名：`おしらせメイト`（ホームページの見出しと同じ）
+   - アプリのホームページ：`https://katuo194.github.io/oshirase-mate/`
+   - プライバシーポリシー：`https://katuo194.github.io/oshirase-mate/privacy.html`
+   - 承認済みドメイン：`katuo194.github.io`
+   - ロゴは載せない（載せると Google の確認が要る）。
 3. 「対象」で「アプリを公開」を押して **本番環境** にする（テストのままだと、受け取った人の連携も 7 日で切れる）。審査は受けない。
 
 **一人ごとに**
@@ -178,6 +183,20 @@ NSIS インストーラーは使いません。未署名のインストーラー
    ```
 
 8. 公開したリリースから zip をダウンロードし、展開して起動できることを確かめます。
+
+## ホームページとプライバシーポリシー（GitHub Pages）
+
+配布用のプロジェクトを本番環境にするのに要るページです（要件定義書 8.6・付録 A-37）。ソースは `site/`（`index.html`・`privacy.html`・`style.css`）で、`.github/workflows/pages.yml` が main への push（`site/`・`docs/images/`・手順書が変わったとき）で `https://katuo194.github.io/oshirase-mate/` に公開します。セットアップ手順書も `setup-guide.html` として同じ場所に出ます。
+
+- **最初に一度だけ**：リポジトリを公開に切り替えたあと、Settings → Pages → Build and deployment の Source を「GitHub Actions」にし、Actions の「Pages」を「Run workflow」で実行します（無料プランでは非公開のリポジトリから Pages を出せないので、非公開のあいだはこの仕事を飛ばします）。
+- **手元で見る**：公開するファイルを `_site/` に集めて、`_site/index.html` をブラウザで開きます。
+
+  ```bash
+  node scripts/build-site.mjs
+  ```
+
+- **ポリシーを直すとき**：Google のデータの読み取り方・PC に保存するもの・外部に送るものを変えたら、`site/privacy.html` の該当の項と「最終更新日」を直します。「限定使用」の一文（Google API サービスのユーザーデータに関するポリシーが求めるもの）は消さないでください（`test/userDocs.test.js` が確かめます）。
+- 画像は `docs/images/` の README と同じものを `images/<名前>` で参照します（参照したものだけが公開されます）。
 
 ## 公開リポジトリでの注意
 
