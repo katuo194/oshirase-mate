@@ -176,6 +176,12 @@ NSIS インストーラーは使いません。未署名のインストーラー
    gh release create v<新しい版> dist/shared/oshirase-mate-shared-<新しい版>-win-x64.zip docs/setup-guide.html --draft --title "v<新しい版>" --notes-file docs/release-notes/v<新しい版>.md
    ```
 
+   zip（約 190MB）のアップロードは、ネットワークのプロキシに途中で切られることがあります（v0.1.0 で起きた）。下書きに zip が無ければ、別の回線につないで添付し直し、GitHub に表示される sha256 が手元の zip と同じかを確かめます。
+
+   ```bash
+   gh release upload v<新しい版> dist/shared/oshirase-mate-shared-<新しい版>-win-x64.zip
+   ```
+
 7. 下書きを公開します（このとき main の先頭にタグ `v<新しい版>` が作られます）。
 
    ```bash
